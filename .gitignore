@@ -1,0 +1,10 @@
+# Derived artifacts — always rebuildable from knowledge/ via `radiant index`
+build/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Secrets
+.env
