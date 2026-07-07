@@ -125,11 +125,17 @@ Before creating any page, the ingestion agent must:
 |---|---|
 | Frontmatter parses and matches the type schema | error |
 | `id` equals filename; slug charset valid; slug unique | error |
-| All `[[links]]` and relation slugs resolve | error |
+| Page lives in its type's folder | error |
+| Frontmatter relation slugs resolve | error |
+| Body `[[links]]` resolve | error (warning on `draft` pages) |
 | All `[Sn]` markers resolve to declared sources | error |
-| Technical page has ≥1 source | error |
+| Technical page has ≥1 source | error (warning on `draft` pages) |
 | Unknown relation key | error |
-| Ambiguous alias (two pages claim it) | error |
+| Ambiguous alias (two pages claim it, or alias shadows a slug) | error |
+| Section link targets an existing heading | warning |
 | Declared source never cited | warning |
 | Missing template-required headings | warning |
+| Meeting filename not `YYYY-MM-DD-slug.md` | warning |
 | `deprecated` page without replacement pointer | warning |
+
+Draft pages get the softer severity on body-content rules because drafts are unreviewed WIP by definition (fresh `radiant new` pages, unmerged ingestion output). Machine-written structure — frontmatter relations, citation markers — is held to error severity at every status.

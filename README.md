@@ -9,7 +9,7 @@ Unlike a traditional RAG system, the knowledge base is **Markdown-first**: human
 
 ## Status
 
-This repository currently contains the **design blueprint**. Nothing is implemented yet — the docs below are the build plan.
+**Phases 0–1 are built and tested** (see [docs/07-build-plan.md](docs/07-build-plan.md)): the `radiant` CLI with `new`, `lint`, `index`, `search`, and `walk`, plus CI. Phases 2+ (ingestion, agents, continuous learning) are designed but not yet implemented.
 
 ## Repository map
 
@@ -26,6 +26,9 @@ docs/                    Design blueprint (read in order)
 templates/               Page templates for every document type
 knowledge/               The knowledge base itself (contains worked examples)
 sources/                 Original documents (PDFs, exports) that pages cite
+radiant/                 The radiant CLI (Python package)
+tests/                   Test suite (pytest)
+build/                   Derived search index — gitignored, `radiant index` rebuilds it
 ```
 
 ## Core idea in one diagram
@@ -55,15 +58,30 @@ Users / tech support / dashboard
 - **Every AI answer is traceable**: answer → knowledge page section → original source document.
 - **The system learns**: every closed support ticket becomes a knowledge-base improvement.
 
-## Quick start (once built)
+## Quick start
 
 ```bash
-radiant new error_code error203        # create a page from a template
+# install (Python >= 3.11)
+uv venv && uv pip install -e ".[dev]"     # or: pip install -e ".[dev]"
+source .venv/bin/activate
+
+radiant new error_code error502 -t "Error 502 — Brush Motor Stall"
+radiant lint                           # validate frontmatter, links, citations
+radiant index                          # rebuild build/index.db (FTS + graph)
+radiant search "lidar timeout"         # tiered: alias -> full-text -> graph
+radiant search "E203" --json           # machine-readable, for agents
+radiant walk error203                  # explore the knowledge graph
+radiant walk scrubber50 known_errors --depth 2
+
+pytest                                 # run the test suite
+```
+
+Coming in later phases (designed in `docs/`, not yet implemented):
+
+```bash
 radiant ingest sources/manuals/scrubber50-service-manual.pdf
-radiant index                          # rebuild the search index
-radiant search "lidar timeout"
 radiant ask "Why is Error 203 happening on a Scrubber 50?"
 radiant learn --ticket 1234            # fold a closed ticket back into the KB
 ```
 
-Start with [docs/07-build-plan.md](docs/07-build-plan.md) to build this system.
+Continue with [docs/07-build-plan.md](docs/07-build-plan.md) — next up is Phase 2 (ingestion).

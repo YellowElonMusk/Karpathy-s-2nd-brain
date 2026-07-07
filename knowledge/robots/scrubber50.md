@@ -32,6 +32,10 @@ Mid-size autonomous floor scrubber for warehouses and retail, navigating via roo
 | Runtime | 4.5 h | [S1] |
 | Navigation | 2D LiDAR + odometry | [S1] |
 
+## Components
+
+No component pages yet — battery pack and LiDAR unit pages arrive with the first real products ingest.
+
 ## Firmware
 
 Recommended: [[v2_8|v2.8]] — fixes the most common field error. Units below v2.6 must step through v2.6 first [S1].
