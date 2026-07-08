@@ -9,7 +9,7 @@ Unlike a traditional RAG system, the knowledge base is **Markdown-first**: human
 
 ## Status
 
-**Phases 0–1 are built and tested** (see [docs/07-build-plan.md](docs/07-build-plan.md)): the `radiant` CLI with `new`, `lint`, `index`, `search`, and `walk`, plus CI. Phases 2+ (ingestion, agents, continuous learning) are designed but not yet implemented.
+**Phases 0–2 are built and tested** (see [docs/07-build-plan.md](docs/07-build-plan.md)): the `radiant` CLI with `new`, `lint`, `index`, `search`, `walk`, and `ingest`, plus CI. The ingestion pipeline's Claude extractor is wired but dormant until an `ANTHROPIC_API_KEY` is configured — until then, `radiant ingest --plan` applies pre-written ops plans through the same reconcile/apply/lint stages. Phases 3+ (ask agent, continuous learning, dashboard) are designed but not yet implemented.
 
 ## Repository map
 
@@ -76,10 +76,17 @@ radiant walk scrubber50 known_errors --depth 2
 pytest                                 # run the test suite
 ```
 
+Ingestion (Phase 2 — Claude extraction activates once `ANTHROPIC_API_KEY` is set):
+
+```bash
+radiant ingest bulletin-17.pdf --dry-run     # Claude proposes ops; print, change nothing
+radiant ingest bulletin-17.pdf --branch      # apply + commit on ingest/bulletin-17
+radiant ingest notes.md --plan plan.yaml     # no API key needed: apply a pre-written ops plan
+```
+
 Coming in later phases (designed in `docs/`, not yet implemented):
 
 ```bash
-radiant ingest sources/manuals/scrubber50-service-manual.pdf
 radiant ask "Why is Error 203 happening on a Scrubber 50?"
 radiant learn --ticket 1234            # fold a closed ticket back into the KB
 ```

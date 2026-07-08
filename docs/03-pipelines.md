@@ -101,6 +101,16 @@ Start strict, loosen with evidence:
 
 The policy is a config knob in `radiant.yaml`, not code, so it can be tightened instantly if quality slips.
 
+## Implementation status (Phase 2)
+
+The pipeline is implemented in `radiant/pipeline/` with these interim simplifications:
+
+- **Extractor is pluggable.** `ClaudeExtractor` (Claude Opus, structured outputs, `RADIANT_EXTRACT_MODEL` to override) is wired but needs Anthropic API credentials at runtime. Until then, `radiant ingest <file> --plan plan.yaml` runs the same reconcile/apply/lint stages on a hand- or externally-written ops plan.
+- **Job log** lives in `build/jobs.db` (SQLite) until PostgreSQL arrives in Phase 5.
+- **Git flow:** default applies to the working tree (review with `git diff`); `--branch` creates and commits on `ingest/<name>`. PR opening stays manual for now.
+- **Parsers:** text/markdown, WhatsApp exports (iOS + Android formats), and PDF via pymupdf (`pip install -e ".[pdf]"`); docling upgrade deferred.
+- **Lint gate:** a failing lint marks the job `lint_failed` and leaves the changes in the tree for inspection — the agent repair loop arrives with the live extractor.
+
 ## Failure handling (both pipelines)
 
 - Parser failure → `ingest_jobs.status = 'parse_error'`, original still archived; retry with fallback parser.

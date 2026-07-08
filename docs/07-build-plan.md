@@ -35,6 +35,8 @@ Make the knowledge base real before writing any pipeline.
 
 **Accept when:** ingesting one real robot manual produces a reviewable PR that creates/updates robot, error-code, and procedure pages with correct `[Sn]` citations and locators; re-running the same ingest is a no-op; ingesting a doc that mentions an existing error updates that page instead of duplicating it.
 
+> **Status:** built (see `radiant/pipeline/` and docs/03 → Implementation status). The deterministic stages — parsers, ops format, reconcile/dedup, apply with citation-id assignment, job log, lint gate — are tested end to end via `--plan` mode. Remaining for full acceptance: run the `ClaudeExtractor` against a real manual once API credentials are configured, and tune `pipeline/prompts/extract.md` on the results.
+
 ## Phase 3 — Ask: the support agent · ~1-2 weeks
 
 **Build:**

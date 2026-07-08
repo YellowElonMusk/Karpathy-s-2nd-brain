@@ -80,6 +80,43 @@ def search(
 
 
 @app.command()
+def ingest(
+    source: str = typer.Argument(..., help="File to ingest (PDF, notes, chat export)"),
+    plan: str = typer.Option(None, "--plan", help="Apply a pre-written ops plan (YAML) instead of running the Claude extractor"),
+    type_hint: str = typer.Option(None, "--type", help="Force parser: pdf | text | chat"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print the reconciled plan, change nothing"),
+    branch: bool = typer.Option(False, "--branch", help="Apply on a new ingest/<name> git branch and commit"),
+    force: bool = typer.Option(False, "--force", help="Re-ingest even if this content was ingested before"),
+) -> None:
+    """Ingest a source document into the knowledge base (docs/03-pipelines.md)."""
+    from pathlib import Path
+
+    from radiant.pipeline import runner
+
+    root = config.find_root()
+    result = runner.ingest(
+        root,
+        source,
+        plan_file=Path(plan) if plan else None,
+        type_hint=type_hint,
+        dry_run=dry_run,
+        branch=branch,
+        force=force,
+    )
+    for note in result.notes:
+        typer.echo(f"note: {note}")
+    if result.plan_yaml:
+        typer.echo(result.plan_yaml)
+    for page in result.pages:
+        typer.echo(f"  {page}")
+    typer.echo(f"ingest: {result.status} ({result.source})")
+    if result.status == "lint_failed":
+        for err in result.lint_errors:
+            typer.echo(err, err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
 def walk(
     slug: str,
     rel: str = typer.Argument(None, help="Relation to follow, e.g. known_errors"),
