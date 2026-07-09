@@ -1,0 +1,39 @@
+# Golden-set evaluation for the support agent (docs/05-agents.md).
+# Grow this from real logged questions: every 👎 answer and every
+# unanswerable question is a candidate case. Run: radiant eval
+
+- id: q001
+  agent: support
+  question: "Why is Error 203 happening on a Scrubber 50?"
+  must_cite: [error203]
+  must_mention: ["lidar", "timeout"]
+
+- id: q002
+  agent: support
+  question: "Which firmware fixed the nav lidar timeout?"
+  must_cite: [v2_8]
+  must_mention: ["2.8"]
+
+- id: q003
+  agent: support
+  question: "How do I clean the LiDAR window on a Scrubber 50?"
+  must_cite: [lidar_cleaning]
+  must_mention: ["microfiber"]
+
+- id: q004
+  agent: support
+  question: "What causes E203?"
+  must_cite: [error203]
+  must_mention: ["dust"]
+
+# Out-of-domain probe: the correct answer is an honest refusal.
+- id: q050
+  agent: support
+  question: "How do I bake a chocolate cake?"
+  expect: no_answer
+
+# In scope of the KB but not yet documented -> should refuse, not guess.
+- id: q051
+  agent: support
+  question: "What is the battery replacement torque spec for the Scrubber 75?"
+  expect: no_answer

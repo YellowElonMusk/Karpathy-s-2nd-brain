@@ -1,0 +1,30 @@
+# RadiantBrain configuration.
+
+# Agent scoping (docs/05-agents.md). A denied folder is invisible to the
+# agent: filtered at index-query time, so scope violations are structurally
+# impossible rather than prompt-discouraged. `scope` lists allowed page types;
+# `deny` overrides scope.
+agents:
+  support:
+    scope: [robot, error_code, procedure, firmware, product, distributor, ticket]
+    deny: [customer]          # customer pages may hold commercial terms
+    write: false
+    model: claude-opus-4-8
+  curator:
+    scope: [all]
+    write: pr-only
+    model: claude-opus-4-8
+  chief-of-staff:
+    scope: [all]
+    write: pr-only
+    model: claude-opus-4-8
+
+# Retrieval / answer assembly.
+retrieval:
+  max_pages: 8                # context budget: pages per answer
+  max_context_chars: 48000    # ~12k tokens
+  score_floor: 40.0           # below this, treat as "no confident hit" -> refuse
+
+# Continuous-learning merge policy (docs/03-pipelines.md). Starts strict.
+learn:
+  merge_policy: human-review  # human-review | auto-confirmations | auto-additive

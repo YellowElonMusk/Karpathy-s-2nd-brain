@@ -47,6 +47,8 @@ Make the knowledge base real before writing any pipeline.
 
 **Accept when:** "Why is Error 203 happening?" returns a correct answer citing `error203#Root causes`; "Which firmware fixed it?" cites the firmware page via the graph edge; an out-of-domain question gets an honest refusal; evals pass in CI.
 
+> **Status:** built (see `radiant/agent/`). Deterministic and tested end to end via a stub responder: scope enforcement (`radiant.yaml`, support agent structurally can't see `customer`/`personal` pages), budgeted context assembly with graph evidence paths, the answer contract + citation verifier, the verify→one-bounce-back→honest-refusal loop, the golden-set eval harness (`evals/questions.yaml`), and the answer log. The honest-refusal path needs no model call and is demoable now (`radiant ask "bake a cake?"`). Remaining for full acceptance: the `ClaudeResponder` and `radiant eval` in CI activate once API credentials are configured (CI runs evals automatically when the `ANTHROPIC_API_KEY` secret is present).
+
 ## Phase 4 — Continuous learning · ~1 week
 
 **Build:**

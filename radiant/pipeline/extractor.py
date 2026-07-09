@@ -53,14 +53,9 @@ class ClaudeExtractor:
         self.model = model or os.environ.get("RADIANT_EXTRACT_MODEL", DEFAULT_MODEL)
 
     def extract(self, doc: ParsedDoc, kb: KB) -> IngestPlan:
-        try:
-            import anthropic
-        except ImportError as e:
-            raise RuntimeError(
-                "the anthropic package is required for extraction — pip install -e ."
-            ) from e
+        from radiant.agent.client import make_client, parse_structured
 
-        client = anthropic.Anthropic()
+        client = make_client()
         system = [
             {
                 "type": "text",
@@ -74,29 +69,23 @@ class ClaudeExtractor:
 
         ops = []
         for chunk in doc_as_prompt_text(doc):
-            try:
-                response = client.messages.parse(
-                    model=self.model,
-                    max_tokens=16000,
-                    thinking={"type": "adaptive"},
-                    system=system,
-                    messages=[
-                        {
-                            "role": "user",
-                            "content": (
-                                f"Source document: {doc.path.name} (kind: {doc.kind})\n"
-                                f"Cite sources with doc: {_doc_ref(doc.path)!r}\n\n{chunk}"
-                            ),
-                        }
-                    ],
-                    output_format=IngestPlan,
-                )
-            except anthropic.AuthenticationError as e:
-                raise RuntimeError(
-                    "no Anthropic API credentials — set ANTHROPIC_API_KEY (or run "
-                    "`ant auth login`), or use `radiant ingest --plan plan.yaml` "
-                    "to apply a pre-written plan instead"
-                ) from e
+            response = parse_structured(
+                client,
+                model=self.model,
+                max_tokens=16000,
+                thinking={"type": "adaptive"},
+                system=system,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": (
+                            f"Source document: {doc.path.name} (kind: {doc.kind})\n"
+                            f"Cite sources with doc: {_doc_ref(doc.path)!r}\n\n{chunk}"
+                        ),
+                    }
+                ],
+                output_format=IngestPlan,
+            )
             if response.stop_reason == "refusal":
                 raise RuntimeError("extraction request was refused by the model")
             ops.extend(response.parsed_output.ops)

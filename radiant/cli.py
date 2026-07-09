@@ -2,13 +2,30 @@
 
 from __future__ import annotations
 
+import functools
 import json
+from pathlib import Path
 
 import typer
 
 from radiant import config, indexer, lint as lint_mod, newpage, search as search_mod
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="RadiantBrain CLI")
+
+
+def _clean_errors(fn):
+    """Turn RuntimeError (e.g. missing API credentials) into a tidy CLI error
+    instead of a traceback."""
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        try:
+            return fn(*args, **kwargs)
+        except RuntimeError as e:
+            typer.echo(f"error: {e}", err=True)
+            raise typer.Exit(1)
+
+    return wrapper
 
 
 @app.command()
@@ -80,6 +97,7 @@ def search(
 
 
 @app.command()
+@_clean_errors
 def ingest(
     source: str = typer.Argument(..., help="File to ingest (PDF, notes, chat export)"),
     plan: str = typer.Option(None, "--plan", help="Apply a pre-written ops plan (YAML) instead of running the Claude extractor"),
@@ -89,8 +107,6 @@ def ingest(
     force: bool = typer.Option(False, "--force", help="Re-ingest even if this content was ingested before"),
 ) -> None:
     """Ingest a source document into the knowledge base (docs/03-pipelines.md)."""
-    from pathlib import Path
-
     from radiant.pipeline import runner
 
     root = config.find_root()
@@ -113,6 +129,70 @@ def ingest(
     if result.status == "lint_failed":
         for err in result.lint_errors:
             typer.echo(err, err=True)
+        raise typer.Exit(1)
+
+
+@app.command()
+@_clean_errors
+def ask(
+    question: str,
+    agent: str = typer.Option("support", "--agent", help="Which agent (support | chief-of-staff)"),
+    json_out: bool = typer.Option(False, "--json", help="Emit the raw answer contract as JSON"),
+    no_log: bool = typer.Option(False, "--no-log", help="Do not record the answer"),
+) -> None:
+    """Ask an agent a question; every answer is citation-verified (docs/05)."""
+    from radiant.agent import answerlog, support
+    from radiant.agent.contract import format_answer
+    from radiant.agent.retrieval import ScopedRetriever
+    from radiant.settings import load_settings
+
+    root = config.find_root()
+    settings = load_settings(root)
+    agent_cfg = settings.agent(agent)
+    con = search_mod.open_index(root)
+    retriever = ScopedRetriever(con, agent_cfg)
+    responder = support.ClaudeResponder(agent_cfg)
+
+    result = support.answer_question(retriever, responder, settings, question)
+    if not no_log:
+        answerlog.record(root, agent, question, result.answer)
+
+    if json_out:
+        typer.echo(result.answer.model_dump_json(indent=2))
+    else:
+        typer.echo(format_answer(result.answer))
+    if result.answer.confidence == "none":
+        raise typer.Exit(2)  # honest refusal is a distinct exit code
+
+
+@app.command()
+@_clean_errors
+def eval(
+    path: str = typer.Option("evals/questions.yaml", "--file", help="Golden-set YAML"),
+) -> None:
+    """Run the golden-set evaluation for the support agent (docs/05)."""
+    from radiant.agent import evals, support
+    from radiant.agent.retrieval import ScopedRetriever
+    from radiant.settings import load_settings
+
+    root = config.find_root()
+    settings = load_settings(root)
+    cases = evals.load_cases(root / path if not Path(path).is_absolute() else Path(path))
+    con = search_mod.open_index(root)
+
+    def retriever_for(agent_name: str) -> ScopedRetriever:
+        return ScopedRetriever(con, settings.agent(agent_name))
+
+    report = evals.EvalReport([])
+    for case in cases:
+        r = evals.run_case(retriever_for(case.agent), support.ClaudeResponder(settings.agent(case.agent)), settings, case)
+        report.results.append(r)
+        mark = "PASS" if r.passed else "FAIL"
+        typer.echo(f"[{mark}] {case.id}: {case.question}")
+        for reason in r.reasons:
+            typer.echo(f"       - {reason}")
+    typer.echo(f"\n{report.passed}/{report.total} passed")
+    if not report.ok:
         raise typer.Exit(1)
 
 

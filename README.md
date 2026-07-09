@@ -9,7 +9,7 @@ Unlike a traditional RAG system, the knowledge base is **Markdown-first**: human
 
 ## Status
 
-**Phases 0–2 are built and tested** (see [docs/07-build-plan.md](docs/07-build-plan.md)): the `radiant` CLI with `new`, `lint`, `index`, `search`, `walk`, and `ingest`, plus CI. The ingestion pipeline's Claude extractor is wired but dormant until an `ANTHROPIC_API_KEY` is configured — until then, `radiant ingest --plan` applies pre-written ops plans through the same reconcile/apply/lint stages. Phases 3+ (ask agent, continuous learning, dashboard) are designed but not yet implemented.
+**Phases 0–3 are built and tested** (see [docs/07-build-plan.md](docs/07-build-plan.md)): the `radiant` CLI with `new`, `lint`, `index`, `search`, `walk`, `ingest`, `ask`, and `eval`, plus CI. The two Claude-powered stages — the ingestion extractor and the support agent — are fully wired but dormant until an `ANTHROPIC_API_KEY` is configured. Everything around them runs and is tested today: retrieval, agent scoping, context assembly, the citation verifier, and the honest-refusal path (which needs no model call). Phases 4+ (continuous learning, dashboard) are designed but not yet implemented.
 
 ## Repository map
 
@@ -84,10 +84,18 @@ radiant ingest bulletin-17.pdf --branch      # apply + commit on ingest/bulletin
 radiant ingest notes.md --plan plan.yaml     # no API key needed: apply a pre-written ops plan
 ```
 
+Ask the support agent (Phase 3 — activates once `ANTHROPIC_API_KEY` is set):
+
+```bash
+radiant ask "Why is Error 203 happening on a Scrubber 50?"   # citation-verified answer
+radiant ask "How do I bake a cake?"      # out-of-domain -> honest refusal (no key needed)
+radiant ask "..." --json                 # raw answer contract
+radiant eval                             # run the golden-set evaluation
+```
+
 Coming in later phases (designed in `docs/`, not yet implemented):
 
 ```bash
-radiant ask "Why is Error 203 happening on a Scrubber 50?"
 radiant learn --ticket 1234            # fold a closed ticket back into the KB
 ```
 

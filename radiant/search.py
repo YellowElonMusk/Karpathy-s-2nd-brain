@@ -19,6 +19,14 @@ from radiant import config
 
 _TIER_SCORE = {"exact": 1000.0, "fts": 100.0, "graph": 50.0, "mentions": 10.0}
 
+# Dropped from full-text queries so out-of-domain questions ("how do I bake a
+# cake?") don't match on filler words present in every page body.
+_STOPWORDS = frozenset(
+    "a an and are as at be by do does for from how i in is it of on or that the "
+    "this to was what when where which who why will with you your my me can could "
+    "should would about into over under after before".split()
+)
+
 
 @dataclass
 class Hit:
@@ -47,9 +55,12 @@ def open_index(root: Path) -> sqlite3.Connection:
 
 def _fts_query(query: str) -> str | None:
     tokens = re.findall(r"[\w']+", query)
-    if not tokens:
+    content = [t for t in tokens if len(t) > 1 and t.lower() not in _STOPWORDS]
+    # Fall back to raw tokens only if the query was ALL stopwords (e.g. "how to").
+    chosen = content or tokens
+    if not chosen:
         return None
-    return " ".join(f'"{t}"' for t in tokens)
+    return " ".join(f'"{t}"' for t in chosen)
 
 
 def _page_row(con: sqlite3.Connection, slug: str) -> sqlite3.Row | None:
