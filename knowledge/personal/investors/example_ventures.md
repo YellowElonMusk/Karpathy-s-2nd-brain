@@ -28,8 +28,8 @@ Invests in vertical AI + hardware-adjacent software. Good fit for the support-au
 
 ## Concerns raised
 
-- 2026-07-02 — Hardware-adjacent support businesses are hard to scale without owning the fleet.
-- 2026-07-02 — Wants proof the knowledge engine cuts ticket-resolution time, not just a demo.
+- 2026-07-02 — Skeptical the support model keeps scaling without owning the fleet.
+- 2026-07-02 — Wants hard proof resolution time drops, not just a demo.
 
 ## Next step
 

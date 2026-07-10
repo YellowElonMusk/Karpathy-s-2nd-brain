@@ -22,7 +22,7 @@ def test_note_appends_to_existing_investor_concerns(repo_copy):
     fm, body = split_page(dest.read_text())
     assert "2026-07-09 — Pushed again on CAC scaling" in body
     # existing content preserved
-    assert "hard to scale without owning the fleet" in body
+    assert "scaling without owning the fleet" in body
     assert fm["updated"] == "2026-07-09"
     assert errors(lint.run(repo_copy)) == []
 
@@ -62,7 +62,7 @@ def test_digest_concerns_preset(repo_copy):
                    section="Concerns raised", on="2026-07-09")
     d = digest.collate(repo_copy, "investor", "Concerns raised")
     texts = [e.text for e in d.entries]
-    assert any("scale without owning the fleet" in t for t in texts)
+    assert any("scaling without owning the fleet" in t for t in texts)
     assert any("scaling support headcount" in t for t in texts)
     assert all(e.when for e in d.entries)          # all dated
 

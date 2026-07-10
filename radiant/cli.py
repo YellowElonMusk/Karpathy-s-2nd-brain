@@ -288,6 +288,23 @@ def digest(
 
 
 @app.command()
+def review(
+    since: str = typer.Option(None, "--since", help="Only include dated entries on/after YYYY-MM-DD"),
+    write: bool = typer.Option(False, "--write", help="Save as a dated research page under personal/research/"),
+) -> None:
+    """Weekly review: recurring concerns, competitor moves, actions, ideas."""
+    from radiant import review as rev
+
+    root = config.find_root()
+    if write:
+        dest = rev.write_review(root, since=since)
+        typer.echo(f"wrote {dest.relative_to(root)}")
+        return
+    body, _ = rev.build_review(root, since=since)
+    typer.echo(body)
+
+
+@app.command()
 def doctor() -> None:
     """Check that operational slug references resolve against the KB (docs/06)."""
     from radiant import integrity

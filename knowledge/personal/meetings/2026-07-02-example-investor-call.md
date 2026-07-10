@@ -33,5 +33,5 @@ Intro call; interested in the support-automation angle, wants to see distributor
 
 ## Concerns raised
 
-- "Hardware-adjacent support businesses are hard to scale without owning the fleet."
+- "Hardware-adjacent support businesses struggle scaling without owning the fleet."
 - Wants proof the knowledge engine reduces ticket resolution time, not just a demo.

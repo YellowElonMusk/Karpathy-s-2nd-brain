@@ -122,6 +122,8 @@ radiant note competitor acme_robotics "Launched at aggressive pricing"   # log a
 radiant note meeting sequoia-call "They liked the deflection metric"     # auto date-prefixed
 radiant digest concerns                  # recurring investor concerns, across all investors
 radiant digest competitors --timeline    # competitor moves, newest first
+radiant review --since 2026-06-01        # weekly rollup: recurring themes + moves + actions
+radiant review --write                   # save the rollup as a dated research page
 radiant ask --agent chief-of-staff "What concerns did investors repeatedly raise?"   # (needs key)
 ```
 
