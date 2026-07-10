@@ -60,13 +60,25 @@ def lint(
 
 
 @app.command()
-def index() -> None:
+def index(
+    embed: bool = typer.Option(False, "--embed", help="Also build the semantic vector tier (docs/04 tier 3)"),
+    provider: str = typer.Option(None, "--embed-provider", help="voyage | local (default: voyage if VOYAGE_API_KEY, else local)"),
+) -> None:
     """Rebuild build/index.db from the Markdown knowledge base."""
     root = config.find_root()
-    stats = indexer.build_index(root)
+    embedder = None
+    if embed:
+        from radiant.vectors import get_embedder
+
+        embedder = get_embedder(provider)
+        if embedder.name == "local":
+            typer.echo("note: local embedder is lexical, not semantic — set VOYAGE_API_KEY "
+                       "for real semantic search", err=True)
+    stats = indexer.build_index(root, embedder=embedder)
+    vec = f", {stats.vectors} vectors" if stats.vectors else ""
     typer.echo(
         f"indexed {stats.pages} pages, {stats.aliases} aliases, "
-        f"{stats.edges} edges, {stats.sections} sections -> {config.index_path(root).relative_to(root)}"
+        f"{stats.edges} edges, {stats.sections} sections{vec} -> {config.index_path(root).relative_to(root)}"
     )
     for path in stats.skipped:
         typer.echo(f"warning: skipped (broken frontmatter): {path}", err=True)
@@ -78,11 +90,18 @@ def search(
     k: int = typer.Option(10, "-k", help="Max results"),
     json_out: bool = typer.Option(False, "--json", help="JSON output (for agents)"),
     deprecated: bool = typer.Option(False, "--deprecated", help="Include deprecated pages"),
+    semantic: bool = typer.Option(False, "--semantic", help="Force the semantic vector tier (needs an embedded index)"),
 ) -> None:
-    """Tiered search: exact/alias -> full-text -> graph expansion."""
+    """Tiered search: exact/alias -> full-text -> graph -> optional semantic."""
     root = config.find_root()
     con = search_mod.open_index(root)
-    hits = search_mod.search(con, query, k=k, include_deprecated=deprecated)
+    embedder = None
+    if semantic:
+        from radiant.vectors import get_embedder
+
+        embedder = get_embedder()
+    hits = search_mod.search(con, query, k=k, include_deprecated=deprecated,
+                             embedder=embedder, semantic=semantic)
     if json_out:
         typer.echo(json.dumps([h.to_dict() for h in hits], indent=2))
         return

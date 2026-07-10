@@ -10,6 +10,7 @@ for explainable, citation-backed answers downstream.
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
 from dataclasses import dataclass, field
@@ -17,7 +18,11 @@ from pathlib import Path
 
 from radiant import config
 
-_TIER_SCORE = {"exact": 1000.0, "fts": 100.0, "graph": 50.0, "mentions": 10.0}
+_TIER_SCORE = {"exact": 1000.0, "fts": 100.0, "graph": 50.0, "vector": 25.0, "mentions": 10.0}
+
+# Below this many confident (tier 0-2) hits, the semantic tier fills in — when
+# an embedder is supplied and the index carries vectors.
+_SEMANTIC_FALLBACK_FLOOR = 3
 
 # Dropped from full-text queries so out-of-domain questions ("how do I bake a
 # cake?") don't match on filler words present in every page body.
@@ -72,6 +77,8 @@ def search(
     query: str,
     k: int = 10,
     include_deprecated: bool = False,
+    embedder=None,
+    semantic: bool = False,
 ) -> list[Hit]:
     hits: dict[str, Hit] = {}
 
@@ -130,10 +137,36 @@ def search(
             path = f"{row['src']} ─{row['rel']}→ {row['dst']}"
             add(other, _TIER_SCORE[tier], f"graph: {path}")
 
+    # Tier 3 (optional) — semantic similarity, only when explicitly requested
+    # or when the earlier tiers came back thin, and only if vectors exist.
+    if embedder is not None and (semantic or len(hits) < _SEMANTIC_FALLBACK_FLOOR):
+        for slug, cos in _vector_search(con, query, embedder, k):
+            score = _TIER_SCORE["vector"] + cos * 20
+            add(slug, score, f"semantic match (cos {cos:.2f})")
+
     ranked = sorted(
         hits.values(), key=lambda h: (-h.score, h.status != "active", h.slug)
     )
     return ranked[:k]
+
+
+def _vector_search(con: sqlite3.Connection, query: str, embedder, k: int) -> list[tuple[str, float]]:
+    """Cosine top-k over stored section vectors, rolled up to best-per-page.
+
+    Pure-Python cosine keeps the index portable (no sqlite-vec dependency);
+    fine at KB scale. Swap in sqlite-vec for very large collections."""
+    from radiant.vectors import cosine
+
+    rows = con.execute("SELECT slug, vec FROM vectors").fetchall()
+    if not rows:
+        return []
+    qvec = embedder.embed([query])[0]
+    best: dict[str, float] = {}
+    for row in rows:
+        c = cosine(qvec, json.loads(row["vec"]))
+        if c > best.get(row["slug"], -1.0):
+            best[row["slug"]] = c
+    return sorted(best.items(), key=lambda kv: -kv[1])[:k]
 
 
 def walk(

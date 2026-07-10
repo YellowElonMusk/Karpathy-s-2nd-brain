@@ -9,7 +9,7 @@ Unlike a traditional RAG system, the knowledge base is **Markdown-first**: human
 
 ## Status
 
-**Phases 0–5 are built and tested** (see [docs/07-build-plan.md](docs/07-build-plan.md)): the `radiant` CLI with `new`, `lint`, `index`, `search`, `walk`, `ingest`, `ask`, `eval`, `learn`, `tickets`, `curator`, `ops`, `doctor`, and `dashboard`, plus CI. This closes the core loop — **source → page → answer → resolved ticket → better page** — and adds the operational layer: prior-resolution lookup, a slug-integrity check across the Git/SQL boundary, and a self-contained read-only dashboard. The three Claude-powered stages (ingestion extractor, support agent, ticket-resolution extractor) are fully wired but dormant until an `ANTHROPIC_API_KEY` is configured; everything around them runs and is tested today. The next phase (Phase 6) is the personal-brain / chief-of-staff agent, designed but not yet implemented.
+**Phases 0–5 are built and tested** (see [docs/07-build-plan.md](docs/07-build-plan.md)): the `radiant` CLI with `new`, `lint`, `index`, `search`, `walk`, `ingest`, `ask`, `eval`, `learn`, `tickets`, `curator`, `ops`, `doctor`, and `dashboard`, plus CI. This closes the core loop — **source → page → answer → resolved ticket → better page** — and adds the operational layer: prior-resolution lookup, a slug-integrity check across the Git/SQL boundary, and a self-contained read-only dashboard. The three Claude-powered stages (ingestion extractor, support agent, ticket-resolution extractor) are fully wired but dormant until an `ANTHROPIC_API_KEY` is configured; everything around them runs and is tested today. The optional **semantic vector tier** (Phase 6 scale-out) is also built — `radiant index --embed` / `radiant search --semantic` — behind an embedding-provider interface with an offline fallback. What remains is the **personal-brain / chief-of-staff agent** (meeting synthesis, weekly reviews, writing to `personal/`), designed but not yet implemented.
 
 ## Repository map
 
@@ -70,6 +70,8 @@ radiant lint                           # validate frontmatter, links, citations
 radiant index                          # rebuild build/index.db (FTS + graph)
 radiant search "lidar timeout"         # tiered: alias -> full-text -> graph
 radiant search "E203" --json           # machine-readable, for agents
+radiant index --embed                  # also build the optional semantic vector tier
+radiant search "sensor stops responding" --semantic   # semantic fallback (tier 3)
 radiant walk error203                  # explore the knowledge graph
 radiant walk scrubber50 known_errors --depth 2
 

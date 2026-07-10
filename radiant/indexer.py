@@ -48,6 +48,10 @@ CREATE TABLE sections (
 CREATE VIRTUAL TABLE fts USING fts5(
   slug UNINDEXED, title, aliases, tags, body
 );
+CREATE TABLE vectors (
+  slug TEXT, heading TEXT, dim INTEGER, vec TEXT,
+  PRIMARY KEY (slug, heading)
+);
 """
 
 _H2_SPLIT_RE = re.compile(r"^##\s+(.+?)\s*$", re.MULTILINE)
@@ -60,6 +64,7 @@ class IndexStats:
     edges: int
     sections: int
     skipped: list[str]
+    vectors: int = 0
 
 
 def _summary(body: str) -> str:
@@ -99,7 +104,9 @@ def _edges_for(kb: KB, page: Page) -> set[tuple[str, str, str]]:
     return edges
 
 
-def build_index(root: Path) -> IndexStats:
+def build_index(root: Path, embedder=None) -> IndexStats:
+    """Build build/index.db from the KB. When `embedder` is given, also embed
+    each non-empty section into the vectors table for cascade tier 3."""
     kb = load_kb(root)
     good = [p for p in kb.pages if p.fm is not None]
     skipped = [p.rel_path for p in kb.pages if p.fm is None]
@@ -114,6 +121,7 @@ def build_index(root: Path) -> IndexStats:
     try:
         con.executescript(_SCHEMA)
         n_aliases = n_edges = n_sections = 0
+        to_embed: list[tuple[str, str, str]] = []  # (slug, heading, text)
         for page in good:
             fm = page.fm
             con.execute(
@@ -133,6 +141,8 @@ def build_index(root: Path) -> IndexStats:
                     (page.slug, heading, text, json.dumps(markers)),
                 )
                 n_sections += 1
+                if embedder is not None and text.strip():
+                    to_embed.append((page.slug, heading, f"{fm.title} — {heading}\n{text}"))
             con.execute(
                 "INSERT INTO fts VALUES (?,?,?,?,?)",
                 (page.slug, fm.title, " ".join(str(a) for a in fm.aliases),
@@ -142,9 +152,19 @@ def build_index(root: Path) -> IndexStats:
             for src, rel, dst in sorted(_edges_for(kb, page)):
                 cur = con.execute("INSERT OR IGNORE INTO edges VALUES (?,?,?)", (src, rel, dst))
                 n_edges += cur.rowcount
+
+        n_vectors = 0
+        if embedder is not None and to_embed:
+            vecs = embedder.embed([t for _, _, t in to_embed])
+            for (slug, heading, _), vec in zip(to_embed, vecs):
+                con.execute(
+                    "INSERT OR REPLACE INTO vectors VALUES (?,?,?,?)",
+                    (slug, heading, embedder.dim, json.dumps([round(x, 6) for x in vec])),
+                )
+                n_vectors += 1
         con.commit()
     finally:
         con.close()
 
     os.replace(tmp, config.index_path(root))
-    return IndexStats(len(good), n_aliases, n_edges, n_sections, skipped)
+    return IndexStats(len(good), n_aliases, n_edges, n_sections, skipped, n_vectors)

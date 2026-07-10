@@ -77,7 +77,7 @@ Make the knowledge base real before writing any pipeline.
 
 ## Phase 6 — Scale-out & personal brain polish · ongoing
 
-- Vector tier: sqlite-vec + embedding pipeline, wired in as cascade tier 3 only; add semantic eval cases ("robot drifts sideways" → traction page).
+- Vector tier: **built** (`radiant/vectors.py`; `radiant index --embed`, `radiant search --semantic`). The embedding provider sits behind the `Embedder` interface — `VoyageEmbedder` (hosted, needs `VOYAGE_API_KEY`) is the real semantic tier; `LocalEmbedder` is a deterministic offline fallback that proves the plumbing (not semantic). Tier 3 is wired into the cascade below graph proximity and only activates when an embedder is supplied and the index carries vectors. Cosine runs in pure Python to keep the index portable; swap in sqlite-vec for very large collections. Remaining: run against a real embedding provider and add semantic eval cases ("robot drifts sideways" → traction page).
 - Email/WhatsApp/CRM parsers; scheduled batch ingestion.
 - Chief-of-staff agent: meeting synthesis, weekly review ("what did I learn from OEMs?", "recurring investor concerns"), writing to `personal/` via PRs.
 - Merge-policy loosening per [03-pipelines.md](03-pipelines.md) once learn-PR quality data supports it.
