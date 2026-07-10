@@ -21,7 +21,8 @@ _DEFAULTS: dict = {
             "model": "claude-opus-4-8",
         },
         "curator": {"scope": ["all"], "write": "pr-only", "model": "claude-opus-4-8"},
-        "chief-of-staff": {"scope": ["all"], "write": "pr-only", "model": "claude-opus-4-8"},
+        "chief-of-staff": {"scope": ["all"], "write": "pr-only", "model": "claude-opus-4-8",
+                           "max_pages": 16},
     },
     "retrieval": {"max_pages": 8, "max_context_chars": 48000, "score_floor": 40.0},
     "learn": {"merge_policy": "human-review"},
@@ -35,6 +36,7 @@ class AgentConfig:
     deny: list[str] = field(default_factory=list)
     write: object = False
     model: str = "claude-opus-4-8"
+    max_pages: int | None = None   # per-agent context budget (synthesis needs more)
 
     def allows(self, page_type: str) -> bool:
         if page_type in self.deny:
@@ -76,6 +78,7 @@ def load_settings(root: Path) -> Settings:
             deny=a.get("deny", []),
             write=a.get("write", False),
             model=a.get("model", "claude-opus-4-8"),
+            max_pages=a.get("max_pages"),
         )
         for name, a in data["agents"].items()
     }

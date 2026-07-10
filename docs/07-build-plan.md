@@ -75,11 +75,27 @@ Make the knowledge base real before writing any pipeline.
 
 > **Status:** built (see `radiant/opsviews.py`, `radiant/integrity.py`, `radiant/dashboard.py`, `db/schema.sql`). The full PostgreSQL schema is delivered as `db/schema.sql` (the migration target); operational data stays in the interim per-store SQLite files that mirror it, keeping the toolchain portable and testable. `radiant ops` exposes prior-resolution lookup ("has another distributor solved this?"), `radiant doctor` runs the nightly slug-integrity check across the Git/SQL boundary, `radiant learn --pending` is the webhook's poller alternative, and `radiant dashboard` generates a self-contained, theme-aware HTML view (KB browser, error frequency, ticket volume, learning pipeline, answer quality, documentation gaps). Remaining: standing up a live Postgres instance and a served (vs. generated-file) dashboard; the ticket-system webhook that triggers `learn --pending`.
 
-## Phase 6 — Scale-out & personal brain polish · ongoing
+## Phase 6 — Personal brain (VC trends, competitor moves, notes) · built
 
-- Vector tier: **built** (`radiant/vectors.py`; `radiant index --embed`, `radiant search --semantic`). The embedding provider sits behind the `Embedder` interface — `VoyageEmbedder` (hosted, needs `VOYAGE_API_KEY`) is the real semantic tier; `LocalEmbedder` is a deterministic offline fallback that proves the plumbing (not semantic). Tier 3 is wired into the cascade below graph proximity and only activates when an embedder is supplied and the index carries vectors. Cosine runs in pure Python to keep the index portable; swap in sqlite-vec for very large collections. Remaining: run against a real embedding provider and add semantic eval cases ("robot drifts sideways" → traction page).
-- Email/WhatsApp/CRM parsers; scheduled batch ingestion.
-- Chief-of-staff agent: meeting synthesis, weekly review ("what did I learn from OEMs?", "recurring investor concerns"), writing to `personal/` via PRs.
+Pulled forward as the current phase so the founder can start using RadiantBrain daily. The value splits into **capture** (deterministic, works with no API key) and **synthesis** (the chief-of-staff agent, activates with the key).
+
+- **Quick capture** — `radiant note <type> <slug> "..."` appends a dated bullet to the right section of a personal page (investor concern → "Concerns raised", competitor move → "Intel log", meeting note → "Notes"), creating the page from its template if needed. Meetings are auto date-prefixed. (`radiant/notes.py`)
+- **Monitoring digests** — `radiant digest concerns | competitors | actions | ideas` (or `--type`/`--section`) collate one section across every page of a type, with a `--timeline` view newest-first. This is the VC-trends and competitor-moves monitor; it reads Markdown directly (always current) and is fully deterministic. (`radiant/digest.py`)
+- **Chief-of-staff agent** — `radiant ask --agent chief-of-staff "..."` runs the citation-verified answer pipeline over full scope (including `personal/`) with a synthesis prompt and a larger page budget (16), so aggregate questions ("what concerns did investors repeatedly raise?", "how are competitors moving on pricing?") are answered across many notes with per-page citations. Behind the same interface as the other agents — activates once `ANTHROPIC_API_KEY` is set. (`radiant/agent/prompts/chief.md`, `radiant/agent/support.py`)
+- Seeded worked examples: `personal/investors/example_ventures.md`, `personal/competitors/acme_robotics.md`.
+
+**Vector tier** (built earlier this cycle) also lands here: `radiant index --embed` / `radiant search --semantic`, behind the `Embedder` interface — `VoyageEmbedder` (hosted, needs `VOYAGE_API_KEY`) is the real semantic tier; `LocalEmbedder` is a deterministic offline fallback. Tier 3 sits below graph proximity and activates only when an embedder is supplied and the index carries vectors; pure-Python cosine keeps the index portable.
+
+**Accept when:** the founder can log an investor concern or competitor move in one command, review recurring themes with `radiant digest`, and (with the key) ask the chief-of-staff for a synthesis with citations to the underlying notes.
+
+## Phase 7 — Scale-out & productionization · next
+
+Moved out of the original Phase 6 so the personal brain could ship first. None of these block daily personal use:
+
+- Live PostgreSQL instance (replacing the interim SQLite stores) and a *served* dashboard (vs. the generated HTML file); the ticket-system webhook that triggers `learn --pending`.
+- A real embedding provider wired to the vector tier + semantic eval cases ("robot drifts sideways" → traction page).
+- Email / CRM parsers and scheduled batch ingestion (the WhatsApp parser already exists from Phase 2).
+- Chief-of-staff writes to `personal/` via PRs (weekly-review generation, meeting-synthesis pages) — currently the agent answers; letting it *author* pages reuses the ingest apply/PR path.
 - Merge-policy loosening per [03-pipelines.md](03-pipelines.md) once learn-PR quality data supports it.
 - Migrate `sources/` to object storage if LFS grows past ~2 GB.
 

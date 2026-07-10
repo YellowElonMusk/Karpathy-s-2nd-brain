@@ -17,7 +17,8 @@ from radiant.agent.contract import Answer, no_answer, verify
 from radiant.agent.retrieval import Context, ScopedRetriever, render_context
 from radiant.settings import AgentConfig, Settings
 
-PROMPT_PATH = Path(__file__).parent / "prompts" / "support.md"
+PROMPTS_DIR = Path(__file__).parent / "prompts"
+PROMPT_BY_AGENT = {"support": "support.md", "chief-of-staff": "chief.md"}
 
 
 class Responder(Protocol):
@@ -38,7 +39,8 @@ def answer_question(
     settings: Settings,
     question: str,
 ) -> AnswerResult:
-    ctx = retriever.assemble(question, settings.max_pages, settings.max_context_chars)
+    max_pages = retriever.agent.max_pages or settings.max_pages
+    ctx = retriever.assemble(question, max_pages, settings.max_context_chars)
 
     # No confident retrieval -> honest refusal, no model call.
     if ctx.is_empty or ctx.max_score < settings.score_floor:
@@ -69,11 +71,18 @@ def answer_question(
     return AnswerResult(ans, pages, [], retried)
 
 
+def make_responder(agent: AgentConfig) -> Responder:
+    """The Claude responder for an agent, with its role-specific prompt."""
+    return ClaudeResponder(agent)
+
+
 class ClaudeResponder:
-    """Structured-output support answers via Claude (docs/05 answer contract)."""
+    """Structured-output answers via Claude (docs/05 answer contract). The
+    system prompt is selected by agent — support vs. chief-of-staff."""
 
     def __init__(self, agent: AgentConfig):
         self.model = os.environ.get("RADIANT_ANSWER_MODEL", agent.model)
+        self.prompt_path = PROMPTS_DIR / PROMPT_BY_AGENT.get(agent.name, "support.md")
 
     def respond(self, question: str, ctx: Context, retry_note: str | None) -> Answer:
         from radiant.agent.client import make_client, parse_structured
@@ -82,7 +91,7 @@ class ClaudeResponder:
         system = [
             {
                 "type": "text",
-                "text": PROMPT_PATH.read_text(encoding="utf-8"),
+                "text": self.prompt_path.read_text(encoding="utf-8"),
                 "cache_control": {"type": "ephemeral"},
             }
         ]

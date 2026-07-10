@@ -15,9 +15,10 @@ agents:
     write: pr-only
     model: claude-opus-4-8
   chief-of-staff:
-    scope: [all]
+    scope: [all]              # full scope, including personal/
     write: pr-only
     model: claude-opus-4-8
+    max_pages: 16             # synthesis queries aggregate across many pages
 
 # Retrieval / answer assembly.
 retrieval:

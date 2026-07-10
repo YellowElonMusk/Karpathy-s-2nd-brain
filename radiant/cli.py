@@ -228,6 +228,66 @@ def tickets_list(
 
 
 @app.command()
+def note(
+    page_type: str = typer.Argument(..., metavar="TYPE", help="investor | competitor | meeting | idea | research"),
+    slug: str = typer.Argument(..., help="Page slug (meetings are auto date-prefixed)"),
+    text: str = typer.Argument(..., help="The note to append"),
+    section: str = typer.Option(None, "--section", "-s", help="Target section (default depends on type)"),
+    title: str = typer.Option(None, "--title", "-t", help="Title if the page is created"),
+    on: str = typer.Option(None, "--on", help="Date override (YYYY-MM-DD)"),
+) -> None:
+    """Capture a dated note onto a personal page, creating it if needed."""
+    from radiant import notes
+
+    root = config.find_root()
+    try:
+        dest, created = notes.add_note(root, page_type, slug, text,
+                                       section=section, title=title, on=on)
+    except ValueError as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(1)
+    verb = "created + noted" if created else "noted"
+    typer.echo(f"{verb}: {dest.relative_to(root)}")
+
+
+@app.command()
+def digest(
+    topic: str = typer.Argument(None, help="Preset: concerns | competitors | actions | ideas"),
+    page_type: str = typer.Option(None, "--type", help="Page type (with --section)"),
+    section: str = typer.Option(None, "--section", "-s", help="Section to collate"),
+    timeline: bool = typer.Option(False, "--timeline", help="Show dated entries newest-first across all pages"),
+) -> None:
+    """Collate a section across all pages of a type — the monitoring view."""
+    from radiant import digest as dig
+
+    root = config.find_root()
+    if topic:
+        if topic not in dig.PRESETS:
+            typer.echo(f"error: unknown preset {topic!r} (have: {', '.join(dig.PRESETS)})", err=True)
+            raise typer.Exit(1)
+        page_type, section = dig.PRESETS[topic]
+    if not (page_type and section):
+        typer.echo("error: give a preset, or both --type and --section", err=True)
+        raise typer.Exit(1)
+
+    d = dig.collate(root, page_type, section)
+    if not d.entries:
+        typer.echo(f"no entries under '{section}' across {page_type} pages")
+        return
+    typer.echo(f"{section} — across {page_type} pages ({len(d.entries)} entries)\n")
+    if timeline:
+        for e in d.chronological():
+            typer.echo(f"  {e.when}  [{e.page}] {e.text}")
+        return
+    for slug, entries in d.by_page().items():
+        typer.echo(f"{slug} ({entries[0].page_title}):")
+        for e in entries:
+            when = f"{e.when} — " if e.when else ""
+            typer.echo(f"  - {when}{e.text}")
+        typer.echo("")
+
+
+@app.command()
 def doctor() -> None:
     """Check that operational slug references resolve against the KB (docs/06)."""
     from radiant import integrity
@@ -317,7 +377,7 @@ def ask(
     agent_cfg = settings.agent(agent)
     con = search_mod.open_index(root)
     retriever = ScopedRetriever(con, agent_cfg)
-    responder = support.ClaudeResponder(agent_cfg)
+    responder = support.make_responder(agent_cfg)
 
     result = support.answer_question(retriever, responder, settings, question)
     if not no_log:

@@ -183,9 +183,6 @@ def _set_intro(body: str, content: str) -> str:
 
 
 def _render(fm: dict, body: str) -> str:
-    dumped = yaml.safe_dump(fm, sort_keys=False, allow_unicode=True, width=100)
-    if not body.startswith("\n"):
-        body = "\n" + body
-    if not body.endswith("\n"):
-        body += "\n"
-    return f"---\n{dumped}---\n{body}"
+    from radiant.frontmatter import dump_page
+
+    return dump_page(fm, body)

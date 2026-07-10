@@ -6,7 +6,7 @@ aliases: []
 tags: [investor, fundraising]
 status: active
 attendees: ["Me", "Jane Partner (Example Ventures)"]
-relates_to: [scrubber50]
+relates_to: [scrubber50, example_ventures]
 sources: []
 created: 2026-07-07
 updated: 2026-07-07

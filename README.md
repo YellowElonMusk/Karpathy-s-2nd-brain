@@ -9,7 +9,7 @@ Unlike a traditional RAG system, the knowledge base is **Markdown-first**: human
 
 ## Status
 
-**Phases 0–5 are built and tested** (see [docs/07-build-plan.md](docs/07-build-plan.md)): the `radiant` CLI with `new`, `lint`, `index`, `search`, `walk`, `ingest`, `ask`, `eval`, `learn`, `tickets`, `curator`, `ops`, `doctor`, and `dashboard`, plus CI. This closes the core loop — **source → page → answer → resolved ticket → better page** — and adds the operational layer: prior-resolution lookup, a slug-integrity check across the Git/SQL boundary, and a self-contained read-only dashboard. The three Claude-powered stages (ingestion extractor, support agent, ticket-resolution extractor) are fully wired but dormant until an `ANTHROPIC_API_KEY` is configured; everything around them runs and is tested today. The optional **semantic vector tier** (Phase 6 scale-out) is also built — `radiant index --embed` / `radiant search --semantic` — behind an embedding-provider interface with an offline fallback. What remains is the **personal-brain / chief-of-staff agent** (meeting synthesis, weekly reviews, writing to `personal/`), designed but not yet implemented.
+**Phases 0–5 are built and tested** (see [docs/07-build-plan.md](docs/07-build-plan.md)): the `radiant` CLI with `new`, `lint`, `index`, `search`, `walk`, `ingest`, `ask`, `eval`, `learn`, `tickets`, `curator`, `ops`, `doctor`, and `dashboard`, plus CI. This closes the core loop — **source → page → answer → resolved ticket → better page** — and adds the operational layer: prior-resolution lookup, a slug-integrity check across the Git/SQL boundary, and a self-contained read-only dashboard. The Claude-powered stages (ingestion extractor, support agent, ticket-resolution extractor, chief-of-staff) are fully wired but dormant until an `ANTHROPIC_API_KEY` is configured; everything around them runs and is tested today. The **personal brain** is now built (Phase 6): `radiant note` for frictionless capture and `radiant digest` for monitoring VC-investing trends and competitor moves — both deterministic and usable with no API key — plus the chief-of-staff synthesis agent. The optional **semantic vector tier** is built too (`radiant index --embed` / `radiant search --semantic`). Remaining scale-out (live Postgres, served dashboard, real embedding provider, PR-authoring chief-of-staff) is deferred to Phase 7.
 
 ## Repository map
 
@@ -114,4 +114,15 @@ radiant doctor                           # verify operational slugs resolve agai
 radiant dashboard -o dashboard.html      # self-contained read-only ops dashboard
 ```
 
-Continue with [docs/07-build-plan.md](docs/07-build-plan.md) — next up is Phase 2 (ingestion).
+Personal brain — capture & monitor (Phase 6 — no API key needed):
+
+```bash
+radiant note investor example_ventures "Pushed again on CAC scaling"     # log a concern
+radiant note competitor acme_robotics "Launched at aggressive pricing"   # log a move
+radiant note meeting sequoia-call "They liked the deflection metric"     # auto date-prefixed
+radiant digest concerns                  # recurring investor concerns, across all investors
+radiant digest competitors --timeline    # competitor moves, newest first
+radiant ask --agent chief-of-staff "What concerns did investors repeatedly raise?"   # (needs key)
+```
+
+See [docs/07-build-plan.md](docs/07-build-plan.md) for the phase map and what's next (Phase 7 scale-out).
