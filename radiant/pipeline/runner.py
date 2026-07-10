@@ -8,13 +8,13 @@ from __future__ import annotations
 
 import hashlib
 import shutil
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from radiant import config, lint as lint_mod
+from radiant import config
 from radiant.kb import load_kb
 from radiant.pipeline import jobs
+from radiant.pipeline.common import git as _git, lint_errors_for as _lint_errors_for
 from radiant.pipeline.apply import apply_plan
 from radiant.pipeline.extractor import ClaudeExtractor, Extractor
 from radiant.pipeline.ops import load_plan, plan_to_yaml
@@ -113,17 +113,3 @@ def _archive(root: Path, src: Path, content_hash: str) -> Path:
     return dest
 
 
-def _lint_errors_for(root: Path, changed: list[str]) -> list[str]:
-    """Lint errors attributable to the files this run touched."""
-    changed_set = set(changed)
-    return [
-        str(issue)
-        for issue in lint_mod.run(root)
-        if issue.severity == "error" and any(path in changed_set for path in issue.path.split(", "))
-    ]
-
-
-def _git(root: Path, *args: str) -> None:
-    result = subprocess.run(["git", "-C", str(root), *args], capture_output=True, text=True)
-    if result.returncode != 0:
-        raise SystemExit(f"error: git {' '.join(args)} failed:\n{result.stderr.strip()}")

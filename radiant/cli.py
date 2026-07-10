@@ -134,6 +134,89 @@ def ingest(
 
 @app.command()
 @_clean_errors
+def learn(
+    ticket: int = typer.Option(..., "--ticket", help="Ticket id to learn from"),
+    plan: str = typer.Option(None, "--plan", help="Apply a pre-written ops plan instead of the Claude extractor"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print the reconciled plan, change nothing"),
+    branch: bool = typer.Option(False, "--branch", help="Apply on a learn/ticket-<id> branch and commit"),
+) -> None:
+    """Fold a resolved ticket's solution back into the knowledge base (docs/03)."""
+    from radiant.pipeline import learn as learn_mod
+
+    root = config.find_root()
+    result = learn_mod.learn(
+        root, ticket,
+        plan_file=Path(plan) if plan else None,
+        dry_run=dry_run, branch=branch,
+    )
+    for note in result.notes:
+        typer.echo(f"note: {note}")
+    if result.plan_yaml:
+        typer.echo(result.plan_yaml)
+    for page in result.pages:
+        typer.echo(f"  {page}")
+    typer.echo(f"learn: {result.status} (ticket #{result.ticket_id})")
+    if result.status == "lint_failed":
+        for err in result.lint_errors:
+            typer.echo(err, err=True)
+        raise typer.Exit(1)
+
+
+tickets_app = typer.Typer(no_args_is_help=True, help="Manage the operational ticket store")
+app.add_typer(tickets_app, name="tickets")
+
+
+@tickets_app.command("import")
+def tickets_import(file: str = typer.Argument(..., help="YAML file: one ticket or a list")) -> None:
+    """Import tickets (with message threads) from a YAML file."""
+    from radiant import tickets as ts
+
+    root = config.find_root()
+    ids = ts.import_file(root, Path(file))
+    typer.echo(f"imported {len(ids)} ticket(s): {', '.join('#' + str(i) for i in ids)}")
+
+
+@tickets_app.command("list")
+def tickets_list(
+    status: str = typer.Option(None, "--status", help="Filter by status"),
+    learn_status: str = typer.Option(None, "--learn-status", help="Filter by learn_status"),
+) -> None:
+    """List tickets."""
+    from radiant import tickets as ts
+
+    root = config.find_root()
+    rows = ts.list_tickets(root, status=status, learn_status=learn_status)
+    if not rows:
+        typer.echo("no tickets")
+        return
+    for t in rows:
+        errs = ",".join(t.error_slugs) or "-"
+        typer.echo(f"#{t.id} [{t.status}/{t.learn_status}] robot={t.robot_slug or '-'} "
+                   f"errors={errs} — {t.summary or ''}")
+
+
+@app.command()
+@_clean_errors
+def curator(
+    create_stubs: bool = typer.Option(False, "--create-stubs", help="(reserved) create draft stub pages — Phase 6"),
+) -> None:
+    """Show the curator backlog: questions the knowledge base couldn't answer."""
+    from radiant.agent import curator as curator_mod
+
+    root = config.find_root()
+    gaps = curator_mod.backlog(root)
+    if not gaps:
+        typer.echo("backlog empty — no unanswered questions logged")
+        return
+    typer.echo(f"{len(gaps)} documentation gap(s):")
+    for g in gaps:
+        typer.echo(f"  - {g.question}  ({g.asked_at})")
+    if create_stubs:
+        typer.echo("note: automatic stub creation is deferred to the curator agent (Phase 6)")
+
+
+@app.command()
+@_clean_errors
 def ask(
     question: str,
     agent: str = typer.Option("support", "--agent", help="Which agent (support | chief-of-staff)"),

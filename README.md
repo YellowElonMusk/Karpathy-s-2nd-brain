@@ -9,7 +9,7 @@ Unlike a traditional RAG system, the knowledge base is **Markdown-first**: human
 
 ## Status
 
-**Phases 0–3 are built and tested** (see [docs/07-build-plan.md](docs/07-build-plan.md)): the `radiant` CLI with `new`, `lint`, `index`, `search`, `walk`, `ingest`, `ask`, and `eval`, plus CI. The two Claude-powered stages — the ingestion extractor and the support agent — are fully wired but dormant until an `ANTHROPIC_API_KEY` is configured. Everything around them runs and is tested today: retrieval, agent scoping, context assembly, the citation verifier, and the honest-refusal path (which needs no model call). Phases 4+ (continuous learning, dashboard) are designed but not yet implemented.
+**Phases 0–4 are built and tested** (see [docs/07-build-plan.md](docs/07-build-plan.md)): the `radiant` CLI with `new`, `lint`, `index`, `search`, `walk`, `ingest`, `ask`, `eval`, `learn`, `tickets`, and `curator`, plus CI. This closes the core loop — **source → page → answer → resolved ticket → better page**. The three Claude-powered stages (ingestion extractor, support agent, ticket-resolution extractor) are fully wired but dormant until an `ANTHROPIC_API_KEY` is configured; everything around them runs and is tested today, including the whole learn loop via `--plan`. Phases 5+ (operational dashboard, vector tier, chief-of-staff agent) are designed but not yet implemented.
 
 ## Repository map
 
@@ -93,10 +93,14 @@ radiant ask "..." --json                 # raw answer contract
 radiant eval                             # run the golden-set evaluation
 ```
 
-Coming in later phases (designed in `docs/`, not yet implemented):
+Continuous learning (Phase 4 — the Claude extractor activates once the key is set):
 
 ```bash
-radiant learn --ticket 1234            # fold a closed ticket back into the KB
+radiant tickets import ticket.yaml       # load a resolved ticket + its thread
+radiant learn --ticket 1 --dry-run       # propose KB updates from the ticket
+radiant learn --ticket 1 --branch        # apply + commit on learn/ticket-1
+radiant tickets list                     # track learn_status per ticket
+radiant curator                          # backlog of questions the KB couldn't answer
 ```
 
 Continue with [docs/07-build-plan.md](docs/07-build-plan.md) — next up is Phase 2 (ingestion).

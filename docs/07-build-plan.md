@@ -61,6 +61,8 @@ Make the knowledge base real before writing any pipeline.
 
 **⬆ This is the whole-system milestone**: source → page → answer → ticket → better page. Everything after is scale-out.
 
+> **Status:** built (see `radiant/tickets.py`, `radiant/pipeline/learn.py`, `radiant/pipeline/policy.py`, `radiant/agent/curator.py`). Tested end to end via a stub extractor and `--plan`: the ticket store (YAML import + thread rendering, interim SQLite mirroring the docs/06 schema), `radiant learn --ticket` reusing the Phase 2 reconcile/apply/lint stages with `learn_status` tracking, the merge-policy engine (classifies confirmation/additive/structural and reports auto-merge eligibility under the `radiant.yaml` policy — starts `human-review`), and the curator's unanswered-question backlog. The demo loop imports a resolved ticket, learns from it, and the error page gains a ticket-cited diagnosis. Remaining for full acceptance: the `ClaudeLearnExtractor` activates once API credentials are configured; PR opening and the ticket-system webhook are Phase 5.
+
 ## Phase 5 — Operational layer & dashboard · ~2 weeks
 
 **Build:**
