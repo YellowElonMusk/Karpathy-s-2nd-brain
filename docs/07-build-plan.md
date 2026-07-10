@@ -73,6 +73,8 @@ Make the knowledge base real before writing any pipeline.
 
 **Accept when:** a support lead can browse the KB, see error-frequency trends, and read agent-answer quality metrics without touching a terminal.
 
+> **Status:** built (see `radiant/opsviews.py`, `radiant/integrity.py`, `radiant/dashboard.py`, `db/schema.sql`). The full PostgreSQL schema is delivered as `db/schema.sql` (the migration target); operational data stays in the interim per-store SQLite files that mirror it, keeping the toolchain portable and testable. `radiant ops` exposes prior-resolution lookup ("has another distributor solved this?"), `radiant doctor` runs the nightly slug-integrity check across the Git/SQL boundary, `radiant learn --pending` is the webhook's poller alternative, and `radiant dashboard` generates a self-contained, theme-aware HTML view (KB browser, error frequency, ticket volume, learning pipeline, answer quality, documentation gaps). Remaining: standing up a live Postgres instance and a served (vs. generated-file) dashboard; the ticket-system webhook that triggers `learn --pending`.
+
 ## Phase 6 — Scale-out & personal brain polish · ongoing
 
 - Vector tier: sqlite-vec + embedding pipeline, wired in as cascade tier 3 only; add semantic eval cases ("robot drifts sideways" → traction page).

@@ -2,6 +2,8 @@
 
 Operational data is everything with per-unit identity or high churn: individual robots in the field, ticket threads, CRM events, telemetry, agent answer logs. It lives in PostgreSQL and **links to the knowledge base by page slug** — never the other way around (pages cite tickets as sources via `ticket:<id>`, but never embed operational records).
 
+> **Implementation status:** the full schema below ships as [`db/schema.sql`](../db/schema.sql), ready to apply to Postgres. Until a live instance is wired in, the `radiant` CLI keeps the same operational data in per-store SQLite files under `build/` (`tickets.db`, `answers.db`, `jobs.db`) that mirror these tables and views, so the toolchain stays portable and testable. `radiant doctor` runs the slug-integrity check; `radiant ops` and `radiant dashboard` read the aggregate views.
+
 The dividing line: **Markdown holds knowledge about kinds of things; PostgreSQL holds facts about individual things and events.** `scrubber50.md` documents the model; the `robots` table knows that serial SN-4411 at Customer A runs v2.7 and threw Error 203 on Tuesday.
 
 ## Schema

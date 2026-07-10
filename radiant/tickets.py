@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   id INTEGER PRIMARY KEY,
   external_ref TEXT,
   customer_slug TEXT,
+  distributor_slug TEXT,
   robot_slug TEXT,
   channel TEXT,
   status TEXT NOT NULL DEFAULT 'open',
@@ -57,6 +58,7 @@ class Ticket:
     id: int
     external_ref: str | None
     customer_slug: str | None
+    distributor_slug: str | None
     robot_slug: str | None
     channel: str | None
     status: str
@@ -94,6 +96,10 @@ def _connect(root: Path) -> sqlite3.Connection:
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA foreign_keys = ON")
     con.executescript(_SCHEMA)
+    # Light migration for stores created before a column existed.
+    cols = {r["name"] for r in con.execute("PRAGMA table_info(tickets)")}
+    if "distributor_slug" not in cols:
+        con.execute("ALTER TABLE tickets ADD COLUMN distributor_slug TEXT")
     return con
 
 
@@ -108,17 +114,19 @@ def add_ticket(root: Path, data: dict) -> int:
     data = {**data}
     data.setdefault("robot_slug", data.get("robot"))
     data.setdefault("customer_slug", data.get("customer"))
+    data.setdefault("distributor_slug", data.get("distributor"))
     status = data.get("status", "open")
     closed_at = data.get("closed_at") or (_now() if status == "closed" else None)
     with _connect(root) as con:
         cur = con.execute(
-            "INSERT INTO tickets (external_ref, customer_slug, robot_slug, channel, status, "
-            "error_slugs, summary, resolution, kb_page_slug, learn_status, opened_at, closed_at) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO tickets (external_ref, customer_slug, distributor_slug, robot_slug, "
+            "channel, status, error_slugs, summary, resolution, kb_page_slug, learn_status, "
+            "opened_at, closed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
-                data.get("external_ref"), data.get("customer_slug"), data.get("robot_slug"),
-                data.get("channel"), status, json.dumps(data.get("error_slugs", [])),
-                data.get("summary"), data.get("resolution"), data.get("kb_page_slug"),
+                data.get("external_ref"), data.get("customer_slug"), data.get("distributor_slug"),
+                data.get("robot_slug"), data.get("channel"), status,
+                json.dumps(data.get("error_slugs", [])), data.get("summary"),
+                data.get("resolution"), data.get("kb_page_slug"),
                 data.get("learn_status", "pending"), data.get("opened_at") or _now(), closed_at,
             ),
         )
@@ -178,7 +186,8 @@ def list_tickets(root: Path, status: str | None = None, learn_status: str | None
 def _row_to_ticket(row: sqlite3.Row, msgs) -> Ticket:
     return Ticket(
         id=row["id"], external_ref=row["external_ref"], customer_slug=row["customer_slug"],
-        robot_slug=row["robot_slug"], channel=row["channel"], status=row["status"],
+        distributor_slug=row["distributor_slug"], robot_slug=row["robot_slug"],
+        channel=row["channel"], status=row["status"],
         error_slugs=json.loads(row["error_slugs"] or "[]"), summary=row["summary"],
         resolution=row["resolution"], kb_page_slug=row["kb_page_slug"],
         learn_status=row["learn_status"], opened_at=row["opened_at"], closed_at=row["closed_at"],

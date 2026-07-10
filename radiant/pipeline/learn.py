@@ -104,6 +104,18 @@ def learn(
                        merge_category=category, auto_merge_eligible=eligible)
 
 
+def learn_pending(root: Path, *, branch: bool = False,
+                  extractor: LearnExtractor | None = None) -> list[LearnResult]:
+    """Process every closed ticket still awaiting learning — the poller
+    alternative to the ticket-system webhook (docs/03 Pipeline B)."""
+    from radiant import tickets as ts
+
+    results = []
+    for t in ts.list_tickets(root, status="closed", learn_status="pending"):
+        results.append(learn(root, t.id, branch=branch, extractor=extractor))
+    return results
+
+
 class ClaudeLearnExtractor:
     """Ticket-resolution extraction via Claude structured outputs."""
 

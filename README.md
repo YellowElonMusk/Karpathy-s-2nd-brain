@@ -9,7 +9,7 @@ Unlike a traditional RAG system, the knowledge base is **Markdown-first**: human
 
 ## Status
 
-**Phases 0–4 are built and tested** (see [docs/07-build-plan.md](docs/07-build-plan.md)): the `radiant` CLI with `new`, `lint`, `index`, `search`, `walk`, `ingest`, `ask`, `eval`, `learn`, `tickets`, and `curator`, plus CI. This closes the core loop — **source → page → answer → resolved ticket → better page**. The three Claude-powered stages (ingestion extractor, support agent, ticket-resolution extractor) are fully wired but dormant until an `ANTHROPIC_API_KEY` is configured; everything around them runs and is tested today, including the whole learn loop via `--plan`. Phases 5+ (operational dashboard, vector tier, chief-of-staff agent) are designed but not yet implemented.
+**Phases 0–5 are built and tested** (see [docs/07-build-plan.md](docs/07-build-plan.md)): the `radiant` CLI with `new`, `lint`, `index`, `search`, `walk`, `ingest`, `ask`, `eval`, `learn`, `tickets`, `curator`, `ops`, `doctor`, and `dashboard`, plus CI. This closes the core loop — **source → page → answer → resolved ticket → better page** — and adds the operational layer: prior-resolution lookup, a slug-integrity check across the Git/SQL boundary, and a self-contained read-only dashboard. The three Claude-powered stages (ingestion extractor, support agent, ticket-resolution extractor) are fully wired but dormant until an `ANTHROPIC_API_KEY` is configured; everything around them runs and is tested today. The next phase (Phase 6) is the personal-brain / chief-of-staff agent, designed but not yet implemented.
 
 ## Repository map
 
@@ -100,7 +100,16 @@ radiant tickets import ticket.yaml       # load a resolved ticket + its thread
 radiant learn --ticket 1 --dry-run       # propose KB updates from the ticket
 radiant learn --ticket 1 --branch        # apply + commit on learn/ticket-1
 radiant tickets list                     # track learn_status per ticket
+radiant learn --pending                  # process every closed ticket awaiting learning
 radiant curator                          # backlog of questions the KB couldn't answer
+```
+
+Operations (Phase 5 — no API key needed):
+
+```bash
+radiant ops error203                     # prior ticket resolutions for an error
+radiant doctor                           # verify operational slugs resolve against the KB
+radiant dashboard -o dashboard.html      # self-contained read-only ops dashboard
 ```
 
 Continue with [docs/07-build-plan.md](docs/07-build-plan.md) — next up is Phase 2 (ingestion).

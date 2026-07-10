@@ -135,7 +135,8 @@ def ingest(
 @app.command()
 @_clean_errors
 def learn(
-    ticket: int = typer.Option(..., "--ticket", help="Ticket id to learn from"),
+    ticket: int = typer.Option(None, "--ticket", help="Ticket id to learn from"),
+    pending: bool = typer.Option(False, "--pending", help="Process all closed tickets awaiting learning"),
     plan: str = typer.Option(None, "--plan", help="Apply a pre-written ops plan instead of the Claude extractor"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Print the reconciled plan, change nothing"),
     branch: bool = typer.Option(False, "--branch", help="Apply on a learn/ticket-<id> branch and commit"),
@@ -144,6 +145,18 @@ def learn(
     from radiant.pipeline import learn as learn_mod
 
     root = config.find_root()
+    if pending:
+        results = learn_mod.learn_pending(root, branch=branch)
+        if not results:
+            typer.echo("no closed tickets awaiting learning")
+            return
+        for r in results:
+            typer.echo(f"ticket #{r.ticket_id}: {r.status}"
+                       + (f" ({r.merge_category})" if r.merge_category else ""))
+        return
+    if ticket is None:
+        typer.echo("error: give --ticket <id> or --pending", err=True)
+        raise typer.Exit(1)
     result = learn_mod.learn(
         root, ticket,
         plan_file=Path(plan) if plan else None,
@@ -193,6 +206,57 @@ def tickets_list(
         errs = ",".join(t.error_slugs) or "-"
         typer.echo(f"#{t.id} [{t.status}/{t.learn_status}] robot={t.robot_slug or '-'} "
                    f"errors={errs} — {t.summary or ''}")
+
+
+@app.command()
+def doctor() -> None:
+    """Check that operational slug references resolve against the KB (docs/06)."""
+    from radiant import integrity
+
+    root = config.find_root()
+    dangling = integrity.check_slugs(root)
+    if not dangling:
+        typer.echo("ok: all operational slug references resolve")
+        return
+    for d in dangling:
+        typer.echo(str(d), err=True)
+    typer.echo(f"{len(dangling)} dangling reference(s)", err=True)
+    raise typer.Exit(1)
+
+
+@app.command()
+def ops(
+    error: str = typer.Argument(None, help="Error slug to show prior resolutions for"),
+) -> None:
+    """Operational views: prior ticket resolutions and error trends (docs/05, docs/06)."""
+    from radiant import opsviews
+
+    root = config.find_root()
+    resolutions = opsviews.error_resolutions(root, error)
+    if error:
+        typer.echo(f"Prior resolutions for {error}:")
+        if not resolutions:
+            typer.echo("  (none on record)")
+        for r in resolutions:
+            who = f" [{r.distributor}]" if r.distributor else ""
+            typer.echo(f"  - {r.resolution}{who}  ({r.closed_at or 'n/a'})")
+        return
+    freq = opsviews.error_frequency(root)
+    typer.echo("Error frequency across tickets:")
+    for slug, n in freq.items():
+        typer.echo(f"  {slug}: {n}")
+
+
+@app.command()
+def dashboard(
+    out: str = typer.Option(None, "--out", "-o", help="Output HTML path (default build/dashboard.html)"),
+) -> None:
+    """Generate the read-only operations dashboard (docs/07 Phase 5)."""
+    from radiant import dashboard as dash
+
+    root = config.find_root()
+    path = dash.write(root, Path(out) if out else None)
+    typer.echo(f"wrote {path.relative_to(root) if path.is_relative_to(root) else path}")
 
 
 @app.command()
