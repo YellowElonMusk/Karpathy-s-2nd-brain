@@ -278,7 +278,9 @@ cv.addEventListener('click',e=>{const r=cv.getBoundingClientRect(),mx=e.clientX-
 
 function openEvent(ev){document.getElementById('d-kick').textContent='CRON REPORT · '+(CATMETA[ev.category]||{label:''}).label;
   document.getElementById('d-title').textContent=ev.headline;
-  document.getElementById('d-meta').innerHTML='<span>JOB <b>'+esc(ev.cron_job||'—')+'</b></span><span>GEO <b>'+ev.lat.toFixed(1)+', '+ev.lon.toFixed(1)+'</b></span>';
+  document.getElementById('d-meta').innerHTML=
+    (ev.agent?'<span>AGENT <b>'+esc(ev.agent)+'</b></span>':'')
+    +'<span>JOB <b>'+esc(ev.cron_job||'—')+'</b></span><span>GEO <b>'+ev.lat.toFixed(1)+', '+ev.lon.toFixed(1)+'</b></span>';
   document.getElementById('d-text').textContent=ev.body||'';
   let s='';if(ev.related_slugs&&ev.related_slugs.length)s+='AFFECTS'+ev.related_slugs.map(x=>'<a onclick="setView(\'neural\');openNode(\''+x+'\')">↳ '+esc(x)+'</a>').join('');
   if(ev.sources&&ev.sources.length)s+='SOURCES'+ev.sources.map(x=>'<a onclick="return false">↳ '+esc(x)+'</a>').join('');

@@ -10,9 +10,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from radiant import webdata
+from radiant import events as events_mod, webdata
 
 WEB_DIR = Path(__file__).parent / "web"
+
+# Module-level so the `request: Request` annotation resolves under
+# `from __future__ import annotations` (otherwise FastAPI can't see the type
+# and treats it as a query param). None when FastAPI isn't installed.
+try:
+    from fastapi import Request
+except Exception:  # pragma: no cover - optional dependency
+    Request = None
 
 
 def create_app(root: Path):
@@ -50,6 +58,30 @@ def create_app(root: Path):
     @app.get("/api/events")
     def events():
         return JSONResponse(webdata.events_json(root))
+
+    @app.post("/api/events")
+    async def ingest(request: Request):
+        # Optional bearer token — required only if RADIANT_INGEST_TOKEN is set,
+        # so local agents work out of the box and remote agents can be secured.
+        import os
+
+        token = os.environ.get("RADIANT_INGEST_TOKEN")
+        if token:
+            auth = request.headers.get("authorization", "")
+            if auth.removeprefix("Bearer ").strip() != token:
+                raise HTTPException(401, "bad or missing ingest token")
+        payload = await request.json()
+        rows = payload.get("events", payload) if isinstance(payload, dict) else payload
+        if isinstance(rows, dict):
+            rows = [rows]
+        created, errors = [], []
+        for r in rows:
+            try:
+                created.append(events_mod.add_event(root, events_mod.normalize_event(r)))
+            except events_mod.NormalizeError as e:
+                errors.append(str(e))
+        return JSONResponse({"created": created, "errors": errors},
+                            status_code=207 if errors else 201)
 
     @app.get("/api/report/{event_id}")
     def report(event_id: int):

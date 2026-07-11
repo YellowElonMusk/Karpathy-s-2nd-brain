@@ -334,6 +334,36 @@ def events_import(file: str = typer.Argument(..., help="JSON file of events")) -
     typer.echo(f"imported {n} event(s)")
 
 
+@events_app.command("add")
+def events_add(
+    headline: str = typer.Argument(..., help="One-line event headline"),
+    place: str = typer.Option(None, "--place", help="Place name (geocoded), e.g. Tehran"),
+    lat: float = typer.Option(None, "--lat", help="Latitude (instead of --place)"),
+    lon: float = typer.Option(None, "--lon", help="Longitude (instead of --place)"),
+    category: str = typer.Option(None, "--category", "-c", help="geo | startup | funding (auto if omitted)"),
+    body: str = typer.Option("", "--body", help="Drill-down report body"),
+    job: str = typer.Option("", "--job", help="Cron job name"),
+    agent: str = typer.Option("", "--agent", help="Producing agent (e.g. openclaw, hermes)"),
+    link: list[str] = typer.Option(None, "--link", help="Related KB slug (repeatable)"),
+) -> None:
+    """Add one world event to the globe feed (for agents shelling out)."""
+    from radiant import events as ev
+
+    root = config.find_root()
+    payload = {"headline": headline, "body": body, "category": category, "cron_job": job,
+               "agent": agent, "related_slugs": link or []}
+    if lat is not None and lon is not None:
+        payload["lat"], payload["lon"] = lat, lon
+    else:
+        payload["place"] = place
+    try:
+        eid = ev.add_event(root, ev.normalize_event(payload))
+    except ev.NormalizeError as e:
+        typer.echo(f"error: {e}", err=True)
+        raise typer.Exit(1)
+    typer.echo(f"added event #{eid}")
+
+
 @events_app.command("list")
 def events_list() -> None:
     """List events currently in the feed."""

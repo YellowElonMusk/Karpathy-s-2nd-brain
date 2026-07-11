@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS events (
   headline TEXT NOT NULL,
   body TEXT,
   cron_job TEXT,
+  agent TEXT,                      -- which external agent produced it
   sources TEXT DEFAULT '[]',
   related_slugs TEXT DEFAULT '[]',
   occurred_at TEXT
@@ -34,6 +35,15 @@ CREATE TABLE IF NOT EXISTS events (
 """
 
 CATEGORIES = ("geo", "startup", "funding")
+
+# Keyword -> canonical category, so an agent's free-form label still colors right.
+_CATEGORY_HINTS = {
+    "geo": ("geo", "geopolit", "war", "politic", "conflict", "policy", "election",
+            "regulat", "sanction", "diplomat", "protest"),
+    "funding": ("fund", "raise", "round", "invest", "seed", "series", "valuation",
+                "acqui", "ipo", "vc"),
+    "startup": ("startup", "launch", "company", "product", "founder", "yc", "hire", "batch"),
+}
 
 
 @dataclass
@@ -44,14 +54,14 @@ class Event:
     headline: str
     body: str = ""
     cron_job: str = ""
+    agent: str = ""
     sources: list[str] = field(default_factory=list)
     related_slugs: list[str] = field(default_factory=list)
     occurred_at: str | None = None
     id: int | None = None
 
     def to_json(self) -> dict:
-        d = asdict(self)
-        return d
+        return asdict(self)
 
 
 # Illustrative feed shown until real cron events land (matches the prototype).
@@ -98,15 +108,18 @@ def _connect(root: Path) -> sqlite3.Connection:
     con = sqlite3.connect(build / "events.db")
     con.row_factory = sqlite3.Row
     con.executescript(_SCHEMA)
+    cols = {r["name"] for r in con.execute("PRAGMA table_info(events)")}
+    if "agent" not in cols:
+        con.execute("ALTER TABLE events ADD COLUMN agent TEXT")
     return con
 
 
 def add_event(root: Path, ev: Event) -> int:
     with _connect(root) as con:
         cur = con.execute(
-            "INSERT INTO events (lat, lon, category, headline, body, cron_job, sources, "
-            "related_slugs, occurred_at) VALUES (?,?,?,?,?,?,?,?,?)",
-            (ev.lat, ev.lon, ev.category, ev.headline, ev.body, ev.cron_job,
+            "INSERT INTO events (lat, lon, category, headline, body, cron_job, agent, sources, "
+            "related_slugs, occurred_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (ev.lat, ev.lon, ev.category, ev.headline, ev.body, ev.cron_job, ev.agent,
              json.dumps(ev.sources), json.dumps(ev.related_slugs),
              ev.occurred_at or datetime.now(timezone.utc).isoformat(timespec="seconds")),
         )
@@ -129,7 +142,7 @@ def list_events(root: Path) -> list[Event]:
     return [
         Event(
             lat=r["lat"], lon=r["lon"], category=r["category"], headline=r["headline"],
-            body=r["body"] or "", cron_job=r["cron_job"] or "",
+            body=r["body"] or "", cron_job=r["cron_job"] or "", agent=r["agent"] or "",
             sources=json.loads(r["sources"] or "[]"),
             related_slugs=json.loads(r["related_slugs"] or "[]"),
             occurred_at=r["occurred_at"], id=r["id"],
@@ -148,3 +161,66 @@ def feed(root: Path) -> list[Event]:
 
 def get_event(root: Path, event_id: int) -> Event | None:
     return next((e for e in feed(root) if e.id == event_id), None)
+
+
+def _first(payload: dict, *keys):
+    for k in keys:
+        if payload.get(k) not in (None, ""):
+            return payload[k]
+    return None
+
+
+def _classify(raw_category, text: str) -> str:
+    if raw_category and str(raw_category).lower() in CATEGORIES:
+        return str(raw_category).lower()
+    blob = f"{raw_category or ''} {text}".lower()
+    for cat, hints in _CATEGORY_HINTS.items():
+        if any(h in blob for h in hints):
+            return cat
+    return "geo"
+
+
+class NormalizeError(ValueError):
+    pass
+
+
+def normalize_event(payload: dict) -> Event:
+    """Map a loose external-agent payload onto an Event.
+
+    Tolerant of field naming — an agent may send `title`/`headline`,
+    `summary`/`body`, `place`/`location`/`city`/`country`, `type`/`category`,
+    `job`/`cron`, `agent`/`source_agent`. A place name is geocoded; explicit
+    `lat`/`lon` win. Raises NormalizeError if there's no headline or no
+    locatable place.
+    """
+    from radiant.geo import geocode
+
+    headline = _first(payload, "headline", "title", "name", "event", "summary")
+    if not headline:
+        raise NormalizeError("event needs a headline/title")
+    headline = str(headline).strip()
+
+    lat, lon = payload.get("lat"), payload.get("lon", payload.get("lng"))
+    if lat is None or lon is None:
+        place = _first(payload, "place", "location", "city", "country", "region", "geo")
+        coords = geocode(place if isinstance(place, str) else None)
+        if coords is None:
+            raise NormalizeError(
+                f"can't locate event {headline!r} — pass lat/lon or a known place "
+                f"(got place={place!r})"
+            )
+        lat, lon = coords
+
+    body = _first(payload, "body", "details", "description", "summary", "text") or ""
+    category = _classify(_first(payload, "category", "type", "kind"), f"{headline} {body}")
+    sources = payload.get("sources") or ([payload["source"]] if payload.get("source") else [])
+    related = payload.get("related_slugs") or payload.get("related") or payload.get("links") or []
+
+    return Event(
+        lat=float(lat), lon=float(lon), category=category, headline=headline,
+        body=str(body), cron_job=str(_first(payload, "cron_job", "job", "cron") or ""),
+        agent=str(_first(payload, "agent", "source_agent", "producer") or ""),
+        sources=[str(s) for s in sources],
+        related_slugs=[str(s) for s in related],
+        occurred_at=_first(payload, "occurred_at", "timestamp", "time", "date"),
+    )

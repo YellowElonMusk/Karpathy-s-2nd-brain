@@ -132,9 +132,15 @@ Obsidian-style neural graph of your knowledge (`pip install -e ".[web]"` first):
 
 ```bash
 radiant serve                            # → http://127.0.0.1:8787
-radiant events import events.json        # feed the globe (cron jobs write here later)
+radiant events add "Strike near Hormuz" --place Iran --agent hermes --job geopolitics-watch
+radiant events import events.json        # bulk feed the globe
 radiant events list
 ```
+
+Plug in **external agents** (OpenClaw, Hermes, any cron): they push events into
+the globe via `POST /api/events` or `radiant events add` — tolerant field names,
+offline place→coords geocoding, per-agent tagging. See
+[docs/08-agent-integration.md](docs/08-agent-integration.md).
 
 The **neural view** is your live `radiant index` graph — clicking a node opens the real
 page and its connections. The **globe** shows geolocated world events; clicking a pin opens
