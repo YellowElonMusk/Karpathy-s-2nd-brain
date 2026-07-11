@@ -171,6 +171,7 @@ const PROJECT_ORDER=['RadiantBots','Fundraising','Competitor Watch','Personal','
 
 let NODES=[],LINKS=[],NI={},EVENTS=[],catOn={geo:1,startup:1,funding:1},typeOn={},hoverNode=null;
 let view='globe',yaw=0,dragging=false,dragX=null;
+let seenEventIds=new Set(),freshUntil={};   // live-refresh: highlight new arrivals
 const eventScreen=[],nodeScreen=[];
 
 /* fallback so the file still shows something if opened without the server */
@@ -186,10 +187,20 @@ async function loadData(){
   try{[g,ev]=await Promise.all([jget('/api/graph'),jget('/api/events')]);}
   catch(e){g=FALLBACK;ev={events:[]};}
   buildGraph(g);EVENTS=ev.events||[];
+  EVENTS.forEach(e=>seenEventIds.add(e.id));
   Object.keys(TYPE).forEach(t=>typeOn[t]=true);
   document.getElementById('t-nodes').textContent=NODES.length;
   document.getElementById('t-links').textContent=LINKS.length;
   document.getElementById('t-feed').textContent=EVENTS.length?EVENTS.length+' LIVE':'IDLE';
+}
+async function refreshEvents(){
+  let ev;try{ev=await jget('/api/events');}catch(e){return;}
+  const rows=ev.events||[];const now=performance.now();let fresh=0;
+  for(const e of rows)if(!seenEventIds.has(e.id)){seenEventIds.add(e.id);freshUntil[e.id]=now+9000;fresh++;}
+  EVENTS=rows;buildTicker();
+  const feed=document.getElementById('t-feed');
+  feed.textContent=EVENTS.length?EVENTS.length+' LIVE':'IDLE';
+  if(fresh){feed.style.color=C.amber;setTimeout(()=>feed.style.color='var(--good)',1500);}
 }
 function buildGraph(g){
   NODES=g.nodes.map((n,i)=>({id:n.id,type:n.type,title:n.title||n.id,status:n.status,
@@ -230,6 +241,9 @@ function drawGlobe(){
     if(p.z<=0.02)return;const sx=cx+p.x*R,sy=cy-p.y*R,col=(CATMETA[ev.category]||{c:C.cyan}).c,pulse=1+Math.sin(t+idx)*0.35;
     ctx.beginPath();ctx.arc(sx,sy,3.2,0,7);ctx.fillStyle=col;ctx.fill();
     ctx.beginPath();ctx.arc(sx,sy,7*pulse,0,7);ctx.strokeStyle=col+'88';ctx.lineWidth=1;ctx.stroke();
+    if(freshUntil[ev.id]>performance.now()){const k=((freshUntil[ev.id]-performance.now())/9000);
+      ctx.beginPath();ctx.arc(sx,sy,7+(1-k)*22,0,7);ctx.strokeStyle=col+Math.floor(k*160).toString(16).padStart(2,'0');
+      ctx.lineWidth=1.5;ctx.stroke();}
     const lx=sx,ly=sy-34;ctx.strokeStyle=col+'66';ctx.beginPath();ctx.moveTo(sx,sy-4);ctx.lineTo(lx,ly+8);ctx.stroke();
     ctx.font='11px ui-monospace,Menlo,monospace';const w=ctx.measureText(ev.headline).width+16;
     const bx=Math.min(Math.max(lx-w/2,6),W-w-6),by=ly-14;
@@ -329,5 +343,6 @@ function toast(m){const t=document.createElement('div');t.textContent='▸ '+m;
 addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();
   if(e.key.toLowerCase()==='g')setView('globe');if(e.key.toLowerCase()==='n')setView('neural');});
 setInterval(tick,1000);tick();
-loadData().then(()=>{resize();buildChips();buildProjects();buildLegend();buildTicker();frame();});
+loadData().then(()=>{resize();buildChips();buildProjects();buildLegend();buildTicker();frame();
+  setInterval(refreshEvents,20000);});   // live: poll the event feed every 20s
 </script></body></html>

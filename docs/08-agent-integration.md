@@ -100,6 +100,23 @@ files and never coordinate with the server.
 Point each agent's `agent` field at its name (`openclaw`, `hermes`) so the globe
 report shows the provenance and you can filter by producer.
 
+**The globe is live.** The console polls `/api/events` every ~20 seconds, so new
+events appear on their own — a fresh arrival flashes an expanding ring and the
+`FEED` counter blips amber. No page reload, no websocket to run; polling is plenty
+at a few events per hour. (Graduate to SSE later only if you ever want
+sub-second updates.)
+
+## Recommended transport
+
+- **Same machine / LAN** → write structured JSON to a folder, run
+  `radiant events watch <dir>` (or `--once` from cron). Zero infra, no parsing.
+- **Not co-located, or reuse an existing Telegram flow** → have the agent include
+  a small JSON block in its Telegram message and add a reader that extracts it
+  (keeps the payload structured — no fragile free-text parsing). Ask for the
+  reader if you want it; it needs a bot token + chat id.
+- **Avoid** a public webhook (exposes an endpoint) or MQTT (real-time infra you
+  don't need yet) until scale calls for them.
+
 ## What's still needed for a fully-live globe
 
 This ingestion surface is done and agent-agnostic. The remaining Phase 7 work is
