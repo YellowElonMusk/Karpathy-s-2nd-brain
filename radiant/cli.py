@@ -364,6 +364,40 @@ def events_add(
     typer.echo(f"added event #{eid}")
 
 
+@events_app.command("watch")
+def events_watch(
+    directory: str = typer.Argument(..., help="Folder your agents drop *.json / *.jsonl events into"),
+    interval: int = typer.Option(15, "--interval", help="Seconds between passes (loop mode)"),
+    once: bool = typer.Option(False, "--once", help="Run one pass and exit (schedule this from cron)"),
+) -> None:
+    """Ingest event files an agent drops into a folder (the pull-based path)."""
+    import time
+    from pathlib import Path as _P
+
+    from radiant import events as ev
+
+    root = config.find_root()
+    src = _P(directory)
+
+    def one_pass() -> None:
+        created, errors = ev.ingest_dir(root, src)
+        for e in errors:
+            typer.echo(f"skip: {e}", err=True)
+        if created:
+            typer.echo(f"ingested {len(created)} event(s)")
+
+    if once:
+        one_pass()
+        return
+    typer.echo(f"watching {src} every {interval}s (Ctrl-C to stop)")
+    try:
+        while True:
+            one_pass()
+            time.sleep(interval)
+    except KeyboardInterrupt:
+        typer.echo("stopped")
+
+
 @events_app.command("list")
 def events_list() -> None:
     """List events currently in the feed."""

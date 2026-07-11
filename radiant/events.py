@@ -163,6 +163,37 @@ def get_event(root: Path, event_id: int) -> Event | None:
     return next((e for e in feed(root) if e.id == event_id), None)
 
 
+def ingest_dir(root: Path, src_dir: Path, processed_dir: Path | None = None) -> tuple[list[int], list[str]]:
+    """Ingest every *.json / *.jsonl file dropped in a directory, then move it
+    aside. The pull-based path for agents that write findings to files rather
+    than calling HTTP. `.json` may be one event, a list, or {"events": [...]};
+    `.jsonl` is one event per line."""
+    src = Path(src_dir)
+    created: list[int] = []
+    errors: list[str] = []
+    dest = Path(processed_dir) if processed_dir else src / ".processed"
+    for f in sorted(p for p in src.glob("*") if p.suffix in (".json", ".jsonl")):
+        try:
+            if f.suffix == ".jsonl":
+                rows = [json.loads(l) for l in f.read_text(encoding="utf-8").splitlines() if l.strip()]
+            else:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                rows = data.get("events", data) if isinstance(data, dict) else data
+                if isinstance(rows, dict):
+                    rows = [rows]
+        except (ValueError, OSError) as e:
+            errors.append(f"{f.name}: unreadable ({e})")
+            continue
+        for r in rows:
+            try:
+                created.append(add_event(root, normalize_event(r)))
+            except NormalizeError as e:
+                errors.append(f"{f.name}: {e}")
+        dest.mkdir(parents=True, exist_ok=True)
+        f.rename(dest / f.name)
+    return created, errors
+
+
 def _first(payload: dict, *keys):
     for k in keys:
         if payload.get(k) not in (None, ""):

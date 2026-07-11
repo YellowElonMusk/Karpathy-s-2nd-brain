@@ -57,6 +57,22 @@ def test_normalize_requires_headline_and_location():
         events.normalize_event({"headline": "somewhere unknown", "place": "Atlantis"})
 
 
+def test_ingest_dir_reads_json_and_jsonl_then_moves(repo_copy: Path, tmp_path: Path):
+    drop = tmp_path / "drop"
+    drop.mkdir()
+    (drop / "a.json").write_text('{"headline":"Berlin robotics seed","place":"Berlin","agent":"openclaw"}')
+    (drop / "b.jsonl").write_text(
+        '{"headline":"Tokyo export rule change","place":"Tokyo","agent":"hermes"}\n'
+        '{"headline":"unlocatable","place":"Atlantis"}\n')
+    created, errors = events.ingest_dir(repo_copy, drop)
+    assert len(created) == 2 and len(errors) == 1        # one bad row reported
+    agents = {e.agent for e in events.feed(repo_copy)}
+    assert agents == {"openclaw", "hermes"}
+    # processed files are moved aside, so a second pass is a no-op
+    assert not list(drop.glob("*.json")) and (drop / ".processed").exists()
+    assert events.ingest_dir(repo_copy, drop) == ([], [])
+
+
 def test_add_normalized_event_shows_agent(repo_copy: Path):
     events.add_event(repo_copy, events.normalize_event({
         "headline": "Hermes flags AI export policy shift", "place": "Japan",

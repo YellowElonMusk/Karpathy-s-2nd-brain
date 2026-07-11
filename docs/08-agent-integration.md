@@ -83,11 +83,19 @@ requests.post("http://HOST:8787/api/events",
           "sources": finding.urls, "related_slugs": finding.kb_hits})
 ```
 
-**If the agent writes files/stdout** — dump findings to a JSON file and load them:
+**If the agent writes files/stdout** — point it at a drop folder and let
+RadiantBrain pull. Each job writes a `*.json` (one event, a list, or
+`{"events":[...]}`) or `*.jsonl` (one event per line) into the folder:
 
 ```bash
-radiant events import findings.json     # {"events": [ {...}, {...} ]}
+radiant events import findings.json     # one-off bulk load
+radiant events watch ./agent-events --once     # ingest the folder once (schedule from cron)
+radiant events watch ./agent-events            # or watch continuously
 ```
+
+`watch` ingests every event file in the folder and moves it into
+`.processed/`, so re-running is a safe no-op — the agents just keep dropping
+files and never coordinate with the server.
 
 Point each agent's `agent` field at its name (`openclaw`, `hermes`) so the globe
 report shows the provenance and you can filter by producer.
