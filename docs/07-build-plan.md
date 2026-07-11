@@ -87,13 +87,18 @@ Pulled forward as the current phase so the founder can start using RadiantBrain 
 
 **Vector tier** (built earlier this cycle) also lands here: `radiant index --embed` / `radiant search --semantic`, behind the `Embedder` interface — `VoyageEmbedder` (hosted, needs `VOYAGE_API_KEY`) is the real semantic tier; `LocalEmbedder` is a deterministic offline fallback. Tier 3 sits below graph proximity and activates only when an embedder is supplied and the index carries vectors; pure-Python cosine keeps the index portable.
 
-**Accept when:** the founder can log an investor concern or competitor move in one command, review recurring themes with `radiant digest`, and (with the key) ask the chief-of-staff for a synthesis with citations to the underlying notes.
+- **Ops console (sci-fi dashboard)** — `radiant serve` launches a local web app (`pip install -e ".[web]"`): a command-deck HUD that toggles between an **Earth globe** of geolocated world events (from the agent cron feed; clicking a pin opens the cron-job report) and an **Obsidian-style neural graph** of the knowledge base. The neural view is the real `build/index.db` — nodes/edges the agents traverse — and clicking a node opens the actual page, its sections, and its connections. Right panel: command buttons, layer/type filters, and collapsible projects derived from the real KB. Pure-canvas frontend (no JS build step); a thin FastAPI shell serves a tested JSON data layer (`radiant/webdata.py`) over the index + the world-event store (`radiant/events.py`). Runs in any browser; a Tauri desktop wrap or a PWA install are later packaging steps, not rewrites. (`radiant/webapp.py`, `radiant/web/index.html`)
+
+**Accept when:** the founder can log an investor concern or competitor move in one command, review recurring themes with `radiant digest`, open the console and explore their real knowledge graph + world-event globe, and (with the key) ask the chief-of-staff for a synthesis with citations to the underlying notes.
+
+> **Form factor (decided):** web app first — the globe/graph libraries are native to the web and it plugs straight into the `radiant` CLI/index; desktop (Tauri) and phone (PWA) are later wraps of the same frontend. **First build scope (decided):** the neural graph runs on real index data now; the globe runs on a sample event feed until the agent cron jobs (Phase 7) populate the events store.
 
 ## Phase 7 — Scale-out & productionization · next
 
 Moved out of the original Phase 6 so the personal brain could ship first. None of these block daily personal use:
 
 - Live PostgreSQL instance (replacing the interim SQLite stores) and a *served* dashboard (vs. the generated HTML file); the ticket-system webhook that triggers `learn --pending`.
+- **Agent cron jobs that feed the globe** — scheduled watchers (geopolitics, new-startup, funding radars) that fetch/synthesize world events, geolocate them, and write to the events store (`radiant/events.py`) with a drill-down report. Needs the API key + web-search/fetch. Until then the globe runs the built-in sample feed.
 - A real embedding provider wired to the vector tier + semantic eval cases ("robot drifts sideways" → traction page).
 - Email / CRM parsers and scheduled batch ingestion (the WhatsApp parser already exists from Phase 2).
 - Chief-of-staff writes to `personal/` via PRs (weekly-review generation, meeting-synthesis pages) — currently the agent answers; letting it *author* pages reuses the ingest apply/PR path.

@@ -127,4 +127,18 @@ radiant review --write                   # save the rollup as a dated research p
 radiant ask --agent chief-of-staff "What concerns did investors repeatedly raise?"   # (needs key)
 ```
 
+The ops console — a sci-fi dashboard toggling an Earth globe of world events and an
+Obsidian-style neural graph of your knowledge (`pip install -e ".[web]"` first):
+
+```bash
+radiant serve                            # → http://127.0.0.1:8787
+radiant events import events.json        # feed the globe (cron jobs write here later)
+radiant events list
+```
+
+The **neural view** is your live `radiant index` graph — clicking a node opens the real
+page and its connections. The **globe** shows geolocated world events; clicking a pin opens
+the cron-job report. Runs in any browser; wrap in Tauri (desktop) or install as a PWA (phone)
+later without a rewrite.
+
 See [docs/07-build-plan.md](docs/07-build-plan.md) for the phase map and what's next (Phase 7 scale-out).

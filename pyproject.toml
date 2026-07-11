@@ -17,6 +17,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8"]
 pdf = ["pymupdf>=1.24"]
+web = ["fastapi>=0.110", "uvicorn>=0.29"]
 
 [project.scripts]
 radiant = "radiant.cli:app"

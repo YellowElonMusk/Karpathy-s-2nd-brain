@@ -305,6 +305,49 @@ def review(
 
 
 @app.command()
+@_clean_errors
+def serve(
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind host"),
+    port: int = typer.Option(8787, "--port", "-p", help="Port"),
+) -> None:
+    """Launch the RadiantBrain ops console (globe + neural graph dashboard)."""
+    from radiant import webapp
+
+    root = config.find_root()
+    if not config.index_path(root).exists():
+        typer.echo("note: no index yet — building one so the graph has data", err=True)
+        indexer.build_index(root)
+    webapp.serve(root, host=host, port=port)
+
+
+events_app = typer.Typer(no_args_is_help=True, help="Manage the world-event feed (globe)")
+app.add_typer(events_app, name="events")
+
+
+@events_app.command("import")
+def events_import(file: str = typer.Argument(..., help="JSON file of events")) -> None:
+    """Import world events from a JSON file."""
+    from radiant import events as ev
+
+    root = config.find_root()
+    n = ev.import_file(root, Path(file))
+    typer.echo(f"imported {n} event(s)")
+
+
+@events_app.command("list")
+def events_list() -> None:
+    """List events currently in the feed."""
+    from radiant import events as ev
+
+    root = config.find_root()
+    stored = ev.list_events(root)
+    for e in ev.feed(root):
+        typer.echo(f"#{e.id} [{e.category}] {e.headline}  ({e.occurred_at or '—'})")
+    if not stored:
+        typer.echo("(built-in sample feed — add real events via cron jobs or `radiant events import`)")
+
+
+@app.command()
 def doctor() -> None:
     """Check that operational slug references resolve against the KB (docs/06)."""
     from radiant import integrity
