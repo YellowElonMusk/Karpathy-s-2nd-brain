@@ -28,16 +28,20 @@ CREATE TABLE IF NOT EXISTS events (
   body TEXT,
   cron_job TEXT,
   agent TEXT,                      -- which external agent produced it
+  severity TEXT,                   -- '' | low | medium | high | critical
   sources TEXT DEFAULT '[]',
   related_slugs TEXT DEFAULT '[]',
   occurred_at TEXT
 );
 """
 
-CATEGORIES = ("geo", "startup", "funding")
+CATEGORIES = ("geo", "startup", "funding", "ops")
+SEVERITIES = ("low", "medium", "high", "critical")
 
 # Keyword -> canonical category, so an agent's free-form label still colors right.
 _CATEGORY_HINTS = {
+    "ops": ("ticket", "error code", "spike", "distributor", "outage", "sla",
+            "churn", "downtime", "incident"),
     "geo": ("geo", "geopolit", "war", "politic", "conflict", "policy", "election",
             "regulat", "sanction", "diplomat", "protest"),
     "funding": ("fund", "raise", "round", "invest", "seed", "series", "valuation",
@@ -55,6 +59,7 @@ class Event:
     body: str = ""
     cron_job: str = ""
     agent: str = ""
+    severity: str = ""
     sources: list[str] = field(default_factory=list)
     related_slugs: list[str] = field(default_factory=list)
     occurred_at: str | None = None
@@ -109,17 +114,18 @@ def _connect(root: Path) -> sqlite3.Connection:
     con.row_factory = sqlite3.Row
     con.executescript(_SCHEMA)
     cols = {r["name"] for r in con.execute("PRAGMA table_info(events)")}
-    if "agent" not in cols:
-        con.execute("ALTER TABLE events ADD COLUMN agent TEXT")
+    for col in ("agent", "severity"):
+        if col not in cols:
+            con.execute(f"ALTER TABLE events ADD COLUMN {col} TEXT")
     return con
 
 
 def add_event(root: Path, ev: Event) -> int:
     with _connect(root) as con:
         cur = con.execute(
-            "INSERT INTO events (lat, lon, category, headline, body, cron_job, agent, sources, "
-            "related_slugs, occurred_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-            (ev.lat, ev.lon, ev.category, ev.headline, ev.body, ev.cron_job, ev.agent,
+            "INSERT INTO events (lat, lon, category, headline, body, cron_job, agent, severity, "
+            "sources, related_slugs, occurred_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (ev.lat, ev.lon, ev.category, ev.headline, ev.body, ev.cron_job, ev.agent, ev.severity,
              json.dumps(ev.sources), json.dumps(ev.related_slugs),
              ev.occurred_at or datetime.now(timezone.utc).isoformat(timespec="seconds")),
         )
@@ -143,6 +149,7 @@ def list_events(root: Path) -> list[Event]:
         Event(
             lat=r["lat"], lon=r["lon"], category=r["category"], headline=r["headline"],
             body=r["body"] or "", cron_job=r["cron_job"] or "", agent=r["agent"] or "",
+            severity=r["severity"] or "",
             sources=json.loads(r["sources"] or "[]"),
             related_slugs=json.loads(r["related_slugs"] or "[]"),
             occurred_at=r["occurred_at"], id=r["id"],
@@ -247,10 +254,14 @@ def normalize_event(payload: dict) -> Event:
     sources = payload.get("sources") or ([payload["source"]] if payload.get("source") else [])
     related = payload.get("related_slugs") or payload.get("related") or payload.get("links") or []
 
+    severity = str(_first(payload, "severity", "risk", "level") or "").lower()
+    if severity not in SEVERITIES:
+        severity = ""
     return Event(
         lat=float(lat), lon=float(lon), category=category, headline=headline,
         body=str(body), cron_job=str(_first(payload, "cron_job", "job", "cron") or ""),
         agent=str(_first(payload, "agent", "source_agent", "producer") or ""),
+        severity=severity,
         sources=[str(s) for s in sources],
         related_slugs=[str(s) for s in related],
         occurred_at=_first(payload, "occurred_at", "timestamp", "time", "date"),

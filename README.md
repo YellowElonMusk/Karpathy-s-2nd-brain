@@ -137,10 +137,17 @@ radiant events import events.json        # bulk feed the globe
 radiant events list
 ```
 
-Plug in **external agents** (OpenClaw, Hermes, any cron): they push events into
-the globe via `POST /api/events` or `radiant events add` — tolerant field names,
-offline place→coords geocoding, per-agent tagging. See
-[docs/08-agent-integration.md](docs/08-agent-integration.md).
+Plug in **external agents** (OpenClaw, Hermes, cloud sandboxes, any cron): they
+push events into the globe three ways — `POST /api/events`, `radiant events add`,
+a watched folder, or a **Telegram chat** (cron posts a `cron_pulse` JSON block;
+`radiant events telegram` reads it back). Tolerant field names, offline
+place→coords geocoding, per-agent tagging, severity-sized pins. The globe
+auto-refreshes live. Full schema + setup: [docs/08-agent-integration.md](docs/08-agent-integration.md).
+
+```bash
+export RADIANT_TELEGRAM_TOKEN=…  RADIANT_TELEGRAM_CHAT=8031693471
+radiant events telegram          # cloud agents → Telegram → globe (also on your phone)
+```
 
 The **neural view** is your live `radiant index` graph — clicking a node opens the real
 page and its connections. The **globe** shows geolocated world events; clicking a pin opens

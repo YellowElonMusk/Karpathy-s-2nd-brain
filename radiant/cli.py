@@ -364,6 +364,29 @@ def events_add(
     typer.echo(f"added event #{eid}")
 
 
+@events_app.command("telegram")
+def events_telegram(
+    token: str = typer.Option(None, "--token", envvar="RADIANT_TELEGRAM_TOKEN", help="Bot API token (@BotFather)"),
+    chat: str = typer.Option(None, "--chat", envvar="RADIANT_TELEGRAM_CHAT", help="Chat id to read (e.g. 8031693471)"),
+    interval: int = typer.Option(15, "--interval", help="Seconds between polls"),
+    once: bool = typer.Option(False, "--once", help="One pass and exit"),
+) -> None:
+    """Read cron_pulse JSON from a Telegram chat onto the globe (docs/08)."""
+    from radiant import telegram
+
+    root = config.find_root()
+    if not token or not chat:
+        typer.echo("error: set --token/--chat (or RADIANT_TELEGRAM_TOKEN / RADIANT_TELEGRAM_CHAT)", err=True)
+        raise typer.Exit(1)
+    if not once:
+        typer.echo(f"reading Telegram chat {chat} every {interval}s (Ctrl-C to stop)")
+    try:
+        telegram.poll(root, token, chat, once=once, interval=interval,
+                      log=lambda m: typer.echo(m))
+    except KeyboardInterrupt:
+        typer.echo("stopped")
+
+
 @events_app.command("watch")
 def events_watch(
     directory: str = typer.Argument(..., help="Folder your agents drop *.json / *.jsonl events into"),

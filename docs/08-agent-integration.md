@@ -106,6 +106,81 @@ events appear on their own — a fresh arrival flashes an expanding ring and the
 at a few events per hour. (Graduate to SSE later only if you ever want
 sub-second updates.)
 
+## Telegram bridge (cloud agents → phone)
+
+For agents that don't share a machine with the webapp (e.g. running in a cloud
+sandbox), reuse a Telegram chat as the transport: the cron posts a JSON block to
+the chat, and RadiantBrain reads it back via the Bot API.
+
+```
+Cron fires → cron_pulse JSON → Telegram message → radiant events telegram → globe
+```
+
+**The cron message format — one envelope, self-describing findings.** Post this
+as a fenced ```json block (or the whole message as JSON). Envelope fields cascade
+onto every finding; a finding may override any of them. Each finding becomes one
+globe pin.
+
+```json
+{
+  "event": "cron_pulse",
+  "timestamp": "2026-07-11T21:45:00Z",
+  "agent": "clara",
+  "job": "geopolitics-watch",
+  "findings": [
+    {
+      "headline": "Iran–Israel ceasefire wobbles",
+      "place": "Iran",
+      "category": "geo",
+      "body": "Two outlets report strikes near the Strait; oil +4%.",
+      "severity": "high",
+      "sources": ["reuters"],
+      "related_slugs": ["distributor_a"]
+    },
+    {
+      "headline": "Distributor A risk score rising",
+      "place": "Nigeria",
+      "category": "ops",
+      "severity": "critical"
+    }
+  ]
+}
+```
+
+| field | where | required | notes |
+|---|---|---|---|
+| `agent` | envelope | — | producing agent (`clara`, `hermes`, …); shown + filterable |
+| `job` | envelope | — | cron job name, shown in the report |
+| `timestamp` | envelope | — | ISO time; applies to all findings unless overridden |
+| `headline` | finding | ✅ | the one-liner on the globe |
+| `place` **or** `lat`+`lon` | finding | ✅ | geocoded offline (city/country name works) |
+| `category` | finding | — | `geo` \| `startup` \| `funding` \| `ops`; auto-classified if omitted |
+| `severity` | finding | — | `low` \| `medium` \| `high` \| `critical` — sizes the pin |
+| `body` | finding | — | drill-down report on click |
+| `sources` | finding | — | source links/names |
+| `related_slugs` | finding | — | KB page slugs this touches → clickable, jumps to the graph |
+
+**One schema for all jobs.** Don't make a schema per job type — put the job's
+meaning in `category` + `severity` + `body`. Internal-ops jobs (ticket-volume
+spikes, error-code spikes, distributor-risk scores) use `category: "ops"` and are
+geolocated to the relevant entity (a distributor's country, the affected region);
+`severity` makes the higher-risk ones bigger and more prominent. Anything with no
+geography at all doesn't belong on the globe — that's a dashboard panel (later).
+
+**Run the reader** on your desktop (where the webapp runs):
+
+```bash
+export RADIANT_TELEGRAM_TOKEN=123456:ABC...      # from @BotFather
+export RADIANT_TELEGRAM_CHAT=8031693471          # the chat to read
+radiant events telegram                          # polls; or --once from cron
+```
+
+Set the cron delivery to `telegram:8031693471` and format each pulse as the JSON
+above. The reader extracts the JSON (ignoring any surrounding chat text),
+tracks the Telegram update offset so nothing is read twice, and the globe
+auto-refreshes within ~20s. Field names are tolerant (`title`/`headline`,
+`location`/`place`, `type`/`category`) so you don't have to match exactly.
+
 ## Recommended transport
 
 - **Same machine / LAN** → write structured JSON to a folder, run

@@ -163,13 +163,15 @@ const C={cyan:'#35e0e6',amber:'#ffb347',geo:'#ff7a59',ink:'#d3e7f0',dim:'#6d8a9c
 const TYPE={robot:'#35e0e6',error_code:'#ff5c5c',firmware:'#9d8cff',procedure:'#37d67a',
   product:'#2fd6b6',investor:'#ffb347',competitor:'#ff6ec7',meeting:'#7fa8c9',idea:'#c9d67f',
   research:'#8fb0cf',ticket:'#ff8a5c',customer:'#5cc8ff',distributor:'#5cd6c0'};
-const CATMETA={geo:{c:C.geo,label:'GEOPOLITICS'},startup:{c:C.cyan,label:'STARTUPS'},funding:{c:C.amber,label:'FUNDING'}};
+const CATMETA={geo:{c:C.geo,label:'GEOPOLITICS'},startup:{c:C.cyan,label:'STARTUPS'},
+  funding:{c:C.amber,label:'FUNDING'},ops:{c:'#c77dff',label:'OPS SIGNAL'}};
+const SEV={low:0.9,medium:1.2,high:1.6,critical:2.1};   // pin size by severity
 const PROJECT_MAP={robot:'RadiantBots',error_code:'RadiantBots',procedure:'RadiantBots',firmware:'RadiantBots',
   product:'RadiantBots',investor:'Fundraising',meeting:'Fundraising',competitor:'Competitor Watch',
   idea:'Personal',research:'Personal',ticket:'Support',customer:'Support',distributor:'Support'};
 const PROJECT_ORDER=['RadiantBots','Fundraising','Competitor Watch','Personal','Support'];
 
-let NODES=[],LINKS=[],NI={},EVENTS=[],catOn={geo:1,startup:1,funding:1},typeOn={},hoverNode=null;
+let NODES=[],LINKS=[],NI={},EVENTS=[],catOn={geo:1,startup:1,funding:1,ops:1},typeOn={},hoverNode=null;
 let view='globe',yaw=0,dragging=false,dragX=null;
 let seenEventIds=new Set(),freshUntil={};   // live-refresh: highlight new arrivals
 const eventScreen=[],nodeScreen=[];
@@ -239,8 +241,9 @@ function drawGlobe(){
   eventScreen.length=0;const t=performance.now()/600;
   EVENTS.forEach((ev,idx)=>{if(!catOn[ev.category])return;const p=project(ev.lat,ev.lon);
     if(p.z<=0.02)return;const sx=cx+p.x*R,sy=cy-p.y*R,col=(CATMETA[ev.category]||{c:C.cyan}).c,pulse=1+Math.sin(t+idx)*0.35;
-    ctx.beginPath();ctx.arc(sx,sy,3.2,0,7);ctx.fillStyle=col;ctx.fill();
-    ctx.beginPath();ctx.arc(sx,sy,7*pulse,0,7);ctx.strokeStyle=col+'88';ctx.lineWidth=1;ctx.stroke();
+    const sev=SEV[ev.severity]||1;
+    ctx.beginPath();ctx.arc(sx,sy,3.2*sev,0,7);ctx.fillStyle=col;ctx.fill();
+    ctx.beginPath();ctx.arc(sx,sy,7*sev*pulse,0,7);ctx.strokeStyle=col+'88';ctx.lineWidth=1;ctx.stroke();
     if(freshUntil[ev.id]>performance.now()){const k=((freshUntil[ev.id]-performance.now())/9000);
       ctx.beginPath();ctx.arc(sx,sy,7+(1-k)*22,0,7);ctx.strokeStyle=col+Math.floor(k*160).toString(16).padStart(2,'0');
       ctx.lineWidth=1.5;ctx.stroke();}
@@ -294,6 +297,7 @@ function openEvent(ev){document.getElementById('d-kick').textContent='CRON REPOR
   document.getElementById('d-title').textContent=ev.headline;
   document.getElementById('d-meta').innerHTML=
     (ev.agent?'<span>AGENT <b>'+esc(ev.agent)+'</b></span>':'')
+    +(ev.severity?'<span>SEVERITY <b>'+esc(ev.severity.toUpperCase())+'</b></span>':'')
     +'<span>JOB <b>'+esc(ev.cron_job||'—')+'</b></span><span>GEO <b>'+ev.lat.toFixed(1)+', '+ev.lon.toFixed(1)+'</b></span>';
   document.getElementById('d-text').textContent=ev.body||'';
   let s='';if(ev.related_slugs&&ev.related_slugs.length)s+='AFFECTS'+ev.related_slugs.map(x=>'<a onclick="setView(\'neural\');openNode(\''+x+'\')">↳ '+esc(x)+'</a>').join('');
