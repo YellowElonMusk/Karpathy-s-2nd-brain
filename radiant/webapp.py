@@ -83,6 +83,26 @@ def create_app(root: Path):
         return JSONResponse({"created": created, "errors": errors},
                             status_code=207 if errors else 201)
 
+    @app.post("/api/sync")
+    def sync():
+        """One-shot feed sync: pull new Telegram messages if the reader is
+        configured (RADIANT_TELEGRAM_TOKEN/CHAT), else just a no-op the client
+        follows with a re-fetch. Suits a weekly-cron cadence — no polling."""
+        import os
+
+        token = os.environ.get("RADIANT_TELEGRAM_TOKEN")
+        chat = os.environ.get("RADIANT_TELEGRAM_CHAT")
+        if not (token and chat):
+            return JSONResponse({"telegram": "not configured", "created": 0, "errors": []})
+        from radiant import telegram
+
+        try:
+            created, errors = telegram.poll_once(root, token, chat)
+        except Exception as e:
+            return JSONResponse({"telegram": f"error: {e}", "created": 0, "errors": []},
+                                status_code=502)
+        return JSONResponse({"telegram": "ok", "created": len(created), "errors": errors})
+
     @app.get("/api/report/{event_id}")
     def report(event_id: int):
         data = webdata.report_json(root, event_id)

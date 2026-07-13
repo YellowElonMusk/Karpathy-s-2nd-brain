@@ -101,3 +101,36 @@ def test_poll_once_filters_other_chats(repo_copy: Path):
     api = _fake_updates(PULSE, chat_id="999")   # a different chat
     created, _ = telegram.poll_once(repo_copy, "tok", "8031693471", _api=api)
     assert created == []                          # nothing from the configured chat
+
+
+# --- /api/sync: one-shot pull for the weekly-cron workflow ---
+
+def test_api_sync_not_configured(repo_copy: Path, monkeypatch):
+    fastapi_testclient = __import__("pytest").importorskip("fastapi.testclient")
+    from radiant.indexer import build_index
+    from radiant.webapp import create_app
+
+    monkeypatch.delenv("RADIANT_TELEGRAM_TOKEN", raising=False)
+    monkeypatch.delenv("RADIANT_TELEGRAM_CHAT", raising=False)
+    build_index(repo_copy)
+    client = fastapi_testclient.TestClient(create_app(repo_copy))
+    r = client.post("/api/sync")
+    assert r.status_code == 200
+    assert r.json()["telegram"] == "not configured"
+
+
+def test_api_sync_pulls_when_configured(repo_copy: Path, monkeypatch):
+    fastapi_testclient = __import__("pytest").importorskip("fastapi.testclient")
+    from radiant.indexer import build_index
+    from radiant.webapp import create_app
+
+    monkeypatch.setenv("RADIANT_TELEGRAM_TOKEN", "tok")
+    monkeypatch.setenv("RADIANT_TELEGRAM_CHAT", "8031693471")
+    monkeypatch.setattr(telegram, "poll_once", lambda root, t, c: ([7, 8], ["one skipped"]))
+    build_index(repo_copy)
+    client = fastapi_testclient.TestClient(create_app(repo_copy))
+    r = client.post("/api/sync")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["telegram"] == "ok" and data["created"] == 2
+    assert data["errors"] == ["one skipped"]

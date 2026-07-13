@@ -138,6 +138,7 @@
     <h2>COMMAND</h2>
     <div class="actions">
       <button class="btn wide" onclick="toast('ask chief-of-staff')">❯ ASK CHIEF-OF-STAFF</button>
+      <button class="btn wide" id="sync-btn" onclick="syncFeed()">⟳ SYNC FEED (TELEGRAM)</button>
       <button class="btn" onclick="toast('radiant note')">+ NOTE</button>
       <button class="btn" onclick="toast('radiant review')">◈ REVIEW</button>
     </div>
@@ -347,6 +348,18 @@ function toast(m){const t=document.createElement('div');t.textContent='▸ '+m;
 addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer();
   if(e.key.toLowerCase()==='g')setView('globe');if(e.key.toLowerCase()==='n')setView('neural');});
 setInterval(tick,1000);tick();
-loadData().then(()=>{resize();buildChips();buildProjects();buildLegend();buildTicker();frame();
-  setInterval(refreshEvents,20000);});   // live: poll the event feed every 20s
+async function syncFeed(){
+  const btn=document.getElementById('sync-btn');btn.disabled=true;btn.textContent='⟳ SYNCING…';
+  let msg='feed refreshed';
+  try{
+    const r=await fetch('/api/sync',{method:'POST'});const d=await r.json();
+    if(d.telegram==='ok')msg=d.created?d.created+' new event(s) from telegram':'no new telegram events';
+    else if(d.telegram!=='not configured')msg=d.telegram;
+    (d.errors||[]).slice(0,2).forEach(e=>console.warn('sync:',e));
+  }catch(e){msg='sync failed — is the server running?';}
+  await refreshEvents();
+  btn.disabled=false;btn.textContent='⟳ SYNC FEED (TELEGRAM)';toast(msg);
+}
+// Weekly-cron cadence: events load on open and on demand via SYNC — no polling.
+loadData().then(()=>{resize();buildChips();buildProjects();buildLegend();buildTicker();frame();});
 </script></body></html>

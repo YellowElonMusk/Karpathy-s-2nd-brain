@@ -100,11 +100,12 @@ files and never coordinate with the server.
 Point each agent's `agent` field at its name (`openclaw`, `hermes`) so the globe
 report shows the provenance and you can filter by producer.
 
-**The globe is live.** The console polls `/api/events` every ~20 seconds, so new
-events appear on their own — a fresh arrival flashes an expanding ring and the
-`FEED` counter blips amber. No page reload, no websocket to run; polling is plenty
-at a few events per hour. (Graduate to SSE later only if you ever want
-sub-second updates.)
+**Refresh model: on demand.** The console loads events on open; the
+"⟳ SYNC FEED (TELEGRAM)" button does a one-shot Telegram pull (when the reader
+env vars are set on the server) and re-fetches the feed. Newly arrived events
+flash an expanding ring and the `FEED` counter blips amber. There is no
+background polling — right for a weekly cron cadence; add polling back only if
+your feeds ever become high-frequency.
 
 ## Telegram bridge (cloud agents → phone)
 
@@ -170,16 +171,28 @@ geography at all doesn't belong on the globe — that's a dashboard panel (later
 **Run the reader** on your desktop (where the webapp runs):
 
 ```bash
-export RADIANT_TELEGRAM_TOKEN=123456:ABC...      # from @BotFather
+export RADIANT_TELEGRAM_TOKEN=123456:ABC...      # from @BotFather — keep it secret
 export RADIANT_TELEGRAM_CHAT=8031693471          # the chat to read
-radiant events telegram                          # polls; or --once from cron
+radiant events telegram --once                   # one-shot pull (weekly cadence)
+# or: click "⟳ SYNC FEED (TELEGRAM)" in the console — same one-shot pull,
+#     works from a phone; continuous polling (`radiant events telegram`)
+#     exists but is unnecessary for weekly crons
 ```
 
 Set the cron delivery to `telegram:8031693471` and format each pulse as the JSON
-above. The reader extracts the JSON (ignoring any surrounding chat text),
-tracks the Telegram update offset so nothing is read twice, and the globe
-auto-refreshes within ~20s. Field names are tolerant (`title`/`headline`,
-`location`/`place`, `type`/`category`) so you don't have to match exactly.
+above. The reader extracts the JSON (ignoring any surrounding chat text) and
+tracks the Telegram update offset so nothing is read twice — syncing twice is a
+safe no-op. Field names are tolerant (`title`/`headline`, `location`/`place`,
+`type`/`category`) so you don't have to match exactly.
+
+**Cadence:** the console loads events on open and re-pulls only when you click
+SYNC — there is no background polling. That matches a weekly cron: open the app,
+hit SYNC once, the new pins flash in.
+
+**Secrets:** the bot token stays on the machine running the reader — set it as
+an env var there and nowhere else. Nobody (including an assistant building this
+app) needs the token or the bot id; the code is configured entirely at runtime.
+If a token ever leaks, rotate it in @BotFather (`/revoke`).
 
 ## Recommended transport
 
